@@ -1,3 +1,0 @@
-E:\Runtime\cmake\bin\cmake.exe -E rm -f CMakeFiles\SVectorTest.dir/objects.a
-E:\Runtime\mingw64\bin\ar.exe qc CMakeFiles\SVectorTest.dir/objects.a @CMakeFiles\SVectorTest.dir\objects1.rsp
-E:\Runtime\mingw64\bin\g++.exe -g -Wl,--whole-archive CMakeFiles\SVectorTest.dir/objects.a -Wl,--no-whole-archive -o SVectorTest.exe -Wl,--out-implib,libSVectorTest.dll.a -Wl,--major-image-version,0,--minor-image-version,0 @CMakeFiles\SVectorTest.dir\linkLibs.rsp

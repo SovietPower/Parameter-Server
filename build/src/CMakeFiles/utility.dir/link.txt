@@ -1,2 +1,0 @@
-E:\Runtime\mingw64\bin\ar.exe qc libutility.a 
-E:\Runtime\mingw64\bin\ranlib.exe libutility.a

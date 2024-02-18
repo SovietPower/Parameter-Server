@@ -1,1 +1,0 @@
-/usr/bin/c++ CMakeFiles/main.dir/main.cpp.o CMakeFiles/main.dir/src/ps/PostOffice.cpp.o -o main  -Wl,-rpath,/mnt/e/Runtime/vcpkg/installed/x64-windows/debug/bin src/libps_lib.a /mnt/e/Runtime/vcpkg/installed/x64-windows/debug/bin/fmtd.dll 
