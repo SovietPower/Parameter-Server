@@ -392,6 +392,7 @@ class SVector {
 			resize(new_cap);
 			size_ = oldSize;
 		}
+		"ovo";
 	}
 
 	template <typename... Args>
