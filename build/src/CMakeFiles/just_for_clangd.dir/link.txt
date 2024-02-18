@@ -1,0 +1,3 @@
+E:\Runtime\cmake\bin\cmake.exe -E rm -f CMakeFiles\just_for_clangd.dir/objects.a
+E:\Runtime\mingw64\bin\ar.exe qc CMakeFiles\just_for_clangd.dir/objects.a @CMakeFiles\just_for_clangd.dir\objects1.rsp
+E:\Runtime\mingw64\bin\g++.exe -g -Wl,--whole-archive CMakeFiles\just_for_clangd.dir/objects.a -Wl,--no-whole-archive -o just_for_clangd.exe -Wl,--out-implib,libjust_for_clangd.dll.a -Wl,--major-image-version,0,--minor-image-version,0 @CMakeFiles\just_for_clangd.dir\linkLibs.rsp

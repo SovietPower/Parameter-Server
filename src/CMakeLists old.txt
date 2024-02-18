@@ -1,0 +1,33 @@
+cmake_minimum_required(VERSION 3.17.0)
+
+project(src LANGUAGES CXX)
+
+# base (currently header-only)
+add_library(base INTERFACE)
+# add_library(base STATIC ${CMAKE_SOURCE_DIR}/src/base/base.cc)
+
+# ps
+add_library(ps STATIC)
+target_include_directories(ps PUBLIC "${CMAKE_SOURCE_DIR}/src")
+
+file(GLOB_RECURSE ps_srcs "${CMAKE_SOURCE_DIR}/src/ps/*.cc")
+target_sources(ps PUBLIC ${ps_srcs})
+
+target_link_libraries(ps PUBLIC fmt::fmt)
+
+# utility (currently header-only)
+add_library(utility STATIC)
+target_include_directories(utility PUBLIC "${CMAKE_SOURCE_DIR}/src")
+
+file(GLOB_RECURSE utility_srcs "${CMAKE_SOURCE_DIR}/src/utility/*.hpp")
+target_sources(utility PUBLIC ${utility_srcs})
+
+target_link_libraries(utility PUBLIC fmt::fmt) # 注意需要 PUBLIC，PRIVATE 会找不到 fmt
+
+# add_library(utility INTERFACE)
+# target_include_directories(utility PUBLIC "${CMAKE_SOURCE_DIR}/src")
+
+# file(GLOB_RECURSE utility_srcs "${CMAKE_SOURCE_DIR}/src/utility/*.cc")
+# target_sources(utility PUBLIC ${utility_srcs})
+
+# target_link_libraries(utility INTERFACE fmt::fmt)

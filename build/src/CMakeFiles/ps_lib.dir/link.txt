@@ -1,0 +1,2 @@
+E:\Runtime\mingw64\bin\ar.exe qc libps_lib.a CMakeFiles/ps_lib.dir/ps/PostOffice.cpp.obj
+E:\Runtime\mingw64\bin\ranlib.exe libps_lib.a

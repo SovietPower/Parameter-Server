@@ -1,0 +1,5 @@
+if(EXISTS "E:/Study/ML/my-ps/build/src/SVectorTest[1]_tests.cmake")
+  include("E:/Study/ML/my-ps/build/src/SVectorTest[1]_tests.cmake")
+else()
+  add_test(SVectorTest_NOT_BUILT SVectorTest_NOT_BUILT)
+endif()

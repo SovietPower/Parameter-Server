@@ -1,0 +1,6 @@
+/mnt/e/Study/ML/my-ps/build_wsl/CMakeFiles/main.dir
+/mnt/e/Study/ML/my-ps/build_wsl/CMakeFiles/edit_cache.dir
+/mnt/e/Study/ML/my-ps/build_wsl/CMakeFiles/rebuild_cache.dir
+/mnt/e/Study/ML/my-ps/build_wsl/src/CMakeFiles/ps_lib.dir
+/mnt/e/Study/ML/my-ps/build_wsl/src/CMakeFiles/edit_cache.dir
+/mnt/e/Study/ML/my-ps/build_wsl/src/CMakeFiles/rebuild_cache.dir

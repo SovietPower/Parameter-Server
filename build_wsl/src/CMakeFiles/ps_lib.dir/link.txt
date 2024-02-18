@@ -1,0 +1,2 @@
+/usr/bin/ar qc libps_lib.a CMakeFiles/ps_lib.dir/ps/PostOffice.cpp.o
+/usr/bin/ranlib libps_lib.a

@@ -1,0 +1,111 @@
+Start testing: Feb 18 21:16 中国标准时间
+----------------------------------------------------------
+1/4 Testing: ConstructorTest.T1
+1/4 Test: ConstructorTest.T1
+Command: "E:/Study/ML/my-ps/build/src/SVectorTest.exe" "--gtest_filter=ConstructorTest.T1" "--gtest_also_run_disabled_tests"
+Directory: E:/Study/ML/my-ps/build/src
+"ConstructorTest.T1" start time: Feb 18 21:16 中国标准时间
+Output:
+----------------------------------------------------------
+Running main() from E:\Study\ML\my-ps\build\_deps\googletest-src\googletest\src\gtest_main.cc
+Note: Google Test filter = ConstructorTest.T1
+[==========] Running 1 test from 1 test suite.
+[----------] Global test environment set-up.
+[----------] 1 test from ConstructorTest
+[ RUN      ] ConstructorTest.T1
+[       OK ] ConstructorTest.T1 (0 ms)
+[----------] 1 test from ConstructorTest (0 ms total)
+
+[----------] Global test environment tear-down
+[==========] 1 test from 1 test suite ran. (0 ms total)
+[  PASSED  ] 1 test.
+<end of output>
+Test time =   0.03 sec
+----------------------------------------------------------
+Test Passed.
+"ConstructorTest.T1" end time: Feb 18 21:16 中国标准时间
+"ConstructorTest.T1" time elapsed: 00:00:00
+----------------------------------------------------------
+
+2/4 Testing: ConstructorTest.T2
+2/4 Test: ConstructorTest.T2
+Command: "E:/Study/ML/my-ps/build/src/SVectorTest.exe" "--gtest_filter=ConstructorTest.T2" "--gtest_also_run_disabled_tests"
+Directory: E:/Study/ML/my-ps/build/src
+"ConstructorTest.T2" start time: Feb 18 21:16 中国标准时间
+Output:
+----------------------------------------------------------
+Running main() from E:\Study\ML\my-ps\build\_deps\googletest-src\googletest\src\gtest_main.cc
+Note: Google Test filter = ConstructorTest.T2
+[==========] Running 1 test from 1 test suite.
+[----------] Global test environment set-up.
+[----------] 1 test from ConstructorTest
+[ RUN      ] ConstructorTest.T2
+[       OK ] ConstructorTest.T2 (0 ms)
+[----------] 1 test from ConstructorTest (0 ms total)
+
+[----------] Global test environment tear-down
+[==========] 1 test from 1 test suite ran. (0 ms total)
+[  PASSED  ] 1 test.
+<end of output>
+Test time =   0.03 sec
+----------------------------------------------------------
+Test Passed.
+"ConstructorTest.T2" end time: Feb 18 21:16 中国标准时间
+"ConstructorTest.T2" time elapsed: 00:00:00
+----------------------------------------------------------
+
+3/4 Testing: ConstructorTest.T3
+3/4 Test: ConstructorTest.T3
+Command: "E:/Study/ML/my-ps/build/src/SVectorTest.exe" "--gtest_filter=ConstructorTest.T3" "--gtest_also_run_disabled_tests"
+Directory: E:/Study/ML/my-ps/build/src
+"ConstructorTest.T3" start time: Feb 18 21:16 中国标准时间
+Output:
+----------------------------------------------------------
+Running main() from E:\Study\ML\my-ps\build\_deps\googletest-src\googletest\src\gtest_main.cc
+Note: Google Test filter = ConstructorTest.T3
+[==========] Running 1 test from 1 test suite.
+[----------] Global test environment set-up.
+[----------] 1 test from ConstructorTest
+[ RUN      ] ConstructorTest.T3
+[       OK ] ConstructorTest.T3 (0 ms)
+[----------] 1 test from ConstructorTest (0 ms total)
+
+[----------] Global test environment tear-down
+[==========] 1 test from 1 test suite ran. (0 ms total)
+[  PASSED  ] 1 test.
+<end of output>
+Test time =   0.03 sec
+----------------------------------------------------------
+Test Passed.
+"ConstructorTest.T3" end time: Feb 18 21:16 中国标准时间
+"ConstructorTest.T3" time elapsed: 00:00:00
+----------------------------------------------------------
+
+4/4 Testing: ConstructorTest.T4
+4/4 Test: ConstructorTest.T4
+Command: "E:/Study/ML/my-ps/build/src/SVectorTest.exe" "--gtest_filter=ConstructorTest.T4" "--gtest_also_run_disabled_tests"
+Directory: E:/Study/ML/my-ps/build/src
+"ConstructorTest.T4" start time: Feb 18 21:16 中国标准时间
+Output:
+----------------------------------------------------------
+Running main() from E:\Study\ML\my-ps\build\_deps\googletest-src\googletest\src\gtest_main.cc
+Note: Google Test filter = ConstructorTest.T4
+[==========] Running 1 test from 1 test suite.
+[----------] Global test environment set-up.
+[----------] 1 test from ConstructorTest
+[ RUN      ] ConstructorTest.T4
+[       OK ] ConstructorTest.T4 (0 ms)
+[----------] 1 test from ConstructorTest (0 ms total)
+
+[----------] Global test environment tear-down
+[==========] 1 test from 1 test suite ran. (0 ms total)
+[  PASSED  ] 1 test.
+<end of output>
+Test time =   0.03 sec
+----------------------------------------------------------
+Test Passed.
+"ConstructorTest.T4" end time: Feb 18 21:16 中国标准时间
+"ConstructorTest.T4" time elapsed: 00:00:00
+----------------------------------------------------------
+
+End testing: Feb 18 21:16 中国标准时间
