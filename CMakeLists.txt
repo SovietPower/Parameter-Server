@@ -50,7 +50,7 @@ target_include_directories(main PRIVATE "${CMAKE_SOURCE_DIR}/src")
 target_link_libraries(main PUBLIC ps_lib)
 target_link_libraries(ps_lib PUBLIC fmt::fmt)
 
-# 为 clangd 生成 compile_commands（MSVC 不行）
+# 为 clangd 生成 compile_commands
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON CACHE INTERNAL "")
 
 # add_subdirectory(tests)

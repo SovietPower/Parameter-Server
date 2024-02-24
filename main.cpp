@@ -2,7 +2,7 @@
 
 #include <fmt/core.h>
 
-#include "base/base.h"
+#include "base/log.h"
 #include "ps/PostOffice.h"
 #include "utility/Test.hpp"
 
@@ -11,9 +11,14 @@ int main(int, char**){
 
 	fmt::println("Hello fmt!");
 
-	fmt::println("pow: {}", pow(3));
+	LOG(DEBUG) << "this is a debug msg!";
+	LOG(INFO) << "this is a info msg!";
 
 	test_print();
 
 	po_print();
+
+	std::string a = "98121";
+	std::string b = "021";
+	CHECK_LT(a, b);
 }

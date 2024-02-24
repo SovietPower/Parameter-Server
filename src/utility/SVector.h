@@ -7,13 +7,14 @@
 #include <vector>
 #include <memory>
 #include <string>
-#include <cassert>
 #include <cstring>
 #include <sstream>
 #include <iterator>
 #include <stdexcept>
 #include <type_traits>
 #include <initializer_list>
+
+#include "base/log.h"
 
 namespace ps {
 
@@ -64,7 +65,7 @@ struct Deleter {
 	explicit Deleter(DeleterType dt, Allocator* alloc = nullptr, size_t cap = 0)
 			: flag(dt), allocator(alloc), capacity(cap) {
 		if (flag != CannotFree) {
-			assert(allocator != nullptr);
+			DCHECK_NOTNULL(allocator);
 		}
 	}
 
@@ -95,7 +96,7 @@ struct Deleter {
  * 与 shared_ptr 类似，SVector 的非 const 操作不是线程安全的。
 
  * 注：为了减少接口数量，allocator 默认进行值初始化，且只有最基本的构造函数支持设置 allocator。可以先设置后，再调用其它逻辑实现其它的构造方式。
- * 因此由于共享的复杂性，不能与 vector 行为一致：整个 data [0, capacity) 的位置的元素都要完成构造，即使没有使用。这样释放时不需要已知 size，只需要 capacity。
+ * 因此由于共享的复杂性，不能与 vector 行为一致：整个 data [0, capacity) 的位置的元素都要完成构造，即使没有使用（因此 T 需要可默认构造）。这样释放时不需要已知 size，只需要 capacity。
  */
 
 /**
@@ -105,6 +106,8 @@ struct Deleter {
 template <typename T, typename Allocator = std::allocator<T>>
 	requires
 		requires (Allocator a, size_t n, T* p) {
+			// T 需要可默认构造
+			T{};
 			// Allocator 需满足分配器 (Allocator) 要求
 			{ a.allocate(n) } -> std::same_as<T*>;
 			a.deallocate(p, n);
@@ -165,17 +168,19 @@ class SVector {
 		if (this == &other) {
 			return *this;
 		}
-		size_ = other.size();
-		capacity_ = other.capacity();
+		size_ = other.size_;
+		capacity_ = other.capacity_;
 		ptr_ = std::move(other.ptr_);
 		allocator = std::move(other.allocator);
+		other.size_ = 0;
+		other.capacity_ = 0;
 		return *this;
 	}
 
 	/**
 	 * @brief 通过数组构造，直接将它作为 SVector 的底层数组，无需拷贝。
-	 * 当 vector 非 const 时，可以用它的 data 调用此构造函数，以零拷贝使用 vector：SVector(v.data(), v.capacity(), false)。但要注意生命周期及 v.data() 的有效性，且 deletable 必须为 false。
-	 * 这样构造的 SVector 不应该发生容量更改。否则 reserve 将可能把原数组中的元素移动到新位置。
+	 * 当 vector 非 const 时，可以用它的 data 调用此构造函数，以零拷贝使用 vector：SVector(v.data(), v.size(), false)。但要注意生命周期及 v.data() 的有效性，且 deletable 必须为 false。
+	 * 这样构造的 SVector 不应该发生容量更改，否则 reserve 将把原数组中的元素移动到新位置（如果可移动）。
 	 * @param data 数组指针
 	 * @param size 数组长度
 	 * @param deletable 当引用计数变为0时，是否要进行析构并释放该数组。应该始终为 false，除非使用同样的 allocator 分配。
@@ -266,7 +271,8 @@ class SVector {
 	 * @return SVector<T> 包含切片的 SVector
 	 */
 	SVector<T> Slice(size_t left, size_t right) {
-		assert(left <= right && right <= size_);
+		DCHECK_LE(left, right); DCHECK_LE(right, size_);
+
 		SVector<T> ret;
 		ret.size_ = right - left;
 		ret.capacity_ = right - left;
@@ -303,6 +309,7 @@ class SVector {
 	/**
 	 * @brief 更改 SVector 的大小和容量以容纳 size 个元素。超过原容量的位置用 default_value 填充。
 	 * 与 vector 不同的是当 new_size < capacity 时不会缩小容器；当 new_size < size 时不会进行析构。
+	 * 注意：new_size <= capacity 时，SVector 不会创建新数组、仅更改 size；否则会创建新的底层数组。
 	 * @param size 新的大小
 	 */
 	void resize(size_t new_size, const T& default_value = T{}) {
@@ -311,7 +318,7 @@ class SVector {
 			size_ = new_size;
 			return;
 		}
-		// 分配新空间，并拷贝/移动旧的元素，包括 [size, capacity) 部分的元（它们已构造）
+		// 分配新空间，并拷贝/移动旧的元素，包括 [size, capacity) 部分的元素（它们已构造）
 		// 会新建一个引用计数存放新的 data，释放旧 data 的计数
 		T* newData = Allocate(new_size);
 		if constexpr (std::is_trivially_copy_constructible_v<T>) {
@@ -322,8 +329,9 @@ class SVector {
 			// 需要 -Wnoclass-memaccess 关闭不可 memcpy 的警告
 			if constexpr (IsRelocatableV<T>) {
 				DeleterT* deleter = std::get_deleter<DeleterT>(ptr_);
-				assert(deleter != nullptr);
-				if (deleter->flag != CannotFree) {
+				// 如果 deleter 从其它位置获取（如 shared_ptr<vector>），则 deleter 为 nullptr
+				// 此时无法修改其实现、进行 relocate，直接跳过
+				if (deleter != nullptr && deleter->flag != CannotFree) {
 					// relocate
 					// relocatable 的对象在 memcpy 后，src 和 dst 有且只能有一个调用析构。因此只有当前对象唯一持有 data 的所有权时，才可避免执行析构或不恰当的修改，才能进行 relocate。
 					done = true;
@@ -371,12 +379,12 @@ class SVector {
 	 * 与 vector 不同，新元素会进行构造和值初始化。
 	 * @param new_cap 新的容量。小于等于原容量时不做任何事。
 	 */
-	void reserve(size_t new_cap) {
+	void reserve(size_t new_cap, const T& default_value = T{}) {
 		if (new_cap <= capacity_) {
 			return;
 		}
 		auto oldSize = size_;
-		resize(new_cap);
+		resize(new_cap, default_value);
 		size_ = oldSize;
 	}
 
@@ -389,7 +397,7 @@ class SVector {
 				reserve(capacity_ * 2);
 			}
 		}
-		assert(size_ < capacity_);
+		DCHECK_LT(size_, capacity_);
 		size_++;
 		std::destroy_at(end() - 1); // 注意末尾处已有构造好的元素，要进行析构
 		return *std::construct_at(end() - 1, std::forward<Args>(args)...);
@@ -407,7 +415,7 @@ class SVector {
 
 	// 不支持
 	// void pop_back() noexcept {
-	// 	assert(size_ > 0);
+	// 	DCHECK_GT(size_, 0);
 	// 	size_--;
 	// 	end()->~T(); // 注意，删除元素后要析构它
 	// 	// std::destroy_at(end());
@@ -505,7 +513,11 @@ class SVector {
 	 * @param tab 起始缩进。
 	 * @param lim 元素的输出数量上限。-1 为全部输出。
 	 */
-	std::string DebugString(size_t lim = 10, size_t tab = 0) const {
+	std::string DebugString(size_t lim = 10, size_t tab = 0) const
+		requires
+			requires(T t, std::stringstream ss) {
+				ss << t; // 仅为支持 << 的对象生成函数
+			} {
 		std::string tabStr(tab, '\t');
 		std::stringstream ss;
 		#define Output(str) ss << tabStr << str
@@ -564,6 +576,10 @@ class SVector {
 };
 
 template <typename T, typename Allocator>
+	requires
+		requires(T t, std::stringstream ss) {
+			ss << t;
+		}
 std::ostream& operator <<(std::ostream& os, const SVector<T, Allocator>& arg) {
 	os << arg.DebugString();
 	return os;

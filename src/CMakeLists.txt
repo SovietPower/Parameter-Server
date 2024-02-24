@@ -42,4 +42,5 @@ macro (AddTest target folder testFileName)
 	gtest_discover_tests(${target})
 endmacro()
 
+# AddTest(LogTest "base" "log_test")
 AddTest(SVectorTest "utility" "SVector_test")
