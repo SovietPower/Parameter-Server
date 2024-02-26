@@ -1,7 +1,6 @@
 /**
  * @file log.h
  * @brief defines logging macros of ps
- * @date 2024-02-21
  */
 /**
 可用的宏：
@@ -26,7 +25,7 @@ CHECK 失败、调用 LOG(FATAL) 会抛出异常或终止程序
 #include <string>
 #include <stdexcept>
 
-#include "./base.h"
+#include "./Base.h"
 
 #if USE_GLOG
 #include <glog/logging.h>
@@ -97,6 +96,8 @@ enum E_LOG_SEVERITY {
 	while (false) CHECK((x) == (y))
 #define DCHECK_NE(x, y) \
 	while (false) CHECK((x) != (y))
+#define DCHECK_NOTNULL(x) \
+	while(false) CHECK_NOTNULL(x)
 #else
 #define DCHECK(x) CHECK(x)
 #define DCHECK_LT(x, y) CHECK((x) < (y))
@@ -105,6 +106,7 @@ enum E_LOG_SEVERITY {
 #define DCHECK_GE(x, y) CHECK((x) >= (y))
 #define DCHECK_EQ(x, y) CHECK((x) == (y))
 #define DCHECK_NE(x, y) CHECK((x) != (y))
+#define DCHECK_NOTNULL(x) CHECK_NOTNULL(x)
 #endif	// NDEBUG
 
 // --- Always-on log (but depends on macro VERBOSE)

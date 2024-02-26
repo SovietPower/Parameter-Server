@@ -1,6 +1,5 @@
 /**
  * @file SVector.h
- * @date 2024-01-25
  */
 #pragma once
 
@@ -435,6 +434,9 @@ class SVector {
 	}
 
 	// --- 元素访问
+	bool has_value() const noexcept {
+		return ptr_.get() != nullptr;
+	}
 	T* data() noexcept {
 		return ptr_.get();
 	}
@@ -510,38 +512,39 @@ class SVector {
 
 	/**
 	 * @brief 生成调试字符串。
+	 * 输出的起始不带缩进；中间内容带 tab+1 的缩进；结尾带 tab 缩进，不换行，无','。
 	 * @param tab 起始缩进。
 	 * @param lim 元素的输出数量上限。-1 为全部输出。
 	 */
-	std::string DebugString(size_t lim = 10, size_t tab = 0) const
+	std::string DebugString(size_t tab = 0, size_t lim = 10) const
 		requires
 			requires(T t, std::stringstream ss) {
 				ss << t; // 仅为支持 << 的对象生成函数
 			} {
-		std::string tabStr(tab, '\t');
 		std::stringstream ss;
-		#define Output(str) ss << tabStr << str
-		Output("{ SVector\n");
-		Output("\tsize: ") << size_ << " capacity: " << capacity_ << '\n';
+		ss << "{ SVector\n";
+		std::string tabStr(tab + 1, '\t');
+		#define NewLine(str) ss << tabStr << str
+		NewLine("size: ") << size_ << ", capacity: " << capacity_ << ",\n";
 		// data
-		Output("\tdata: [ ");
+		NewLine("data: [ ");
 		const T* data = this->data(); // 注意是 const T*
 		if (size_ < 2 * lim) {
 			for (size_t i = 0; i < size_; ++i) {
-				ss << data[i] << ' ';
+				ss << data[i] << ", ";
 			}
 		} else {
-			for (size_t i = 0; i <lim; ++i) {
-				ss << data[i] << ' ';
+			for (size_t i = 0; i < lim; ++i) {
+				ss << data[i] << ", ";
 			}
 			ss << "... ";
 			for (size_t i = size_ - lim; i < size_; ++i) {
-				ss << data[i] << ' ';
+				ss << data[i] << ", ";
 			}
 		}
-		ss << "]\n";
-		Output("}");
-		#undef Output
+		ss << "],\n";
+		#undef NewLine
+		ss << std::string(tab, '\t') << "}";
 		return ss.str();
 	}
 

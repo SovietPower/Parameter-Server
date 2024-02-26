@@ -2,9 +2,9 @@
 
 #include <fmt/core.h>
 
-#include "base/log.h"
+#include "base/Log.h"
 #include "ps/PostOffice.h"
-#include "utility/Test.hpp"
+#include "ps/Message.h"
 
 int main(int, char**){
     std::cout << "Hello, from my-ps!\n";
@@ -14,11 +14,11 @@ int main(int, char**){
 	LOG(DEBUG) << "this is a debug msg!";
 	LOG(INFO) << "this is a info msg!";
 
-	test_print();
-
 	po_print();
 
-	std::string a = "98121";
-	std::string b = "021";
-	CHECK_LT(a, b);
+	puts("------");
+	ps::Message msg;
+	std::cout << msg.DebugString() << std::endl;
+	ps::Meta meta;
+	std::cout << meta.DebugString() << std::endl;
 }

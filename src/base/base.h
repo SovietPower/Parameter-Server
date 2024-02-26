@@ -1,7 +1,6 @@
 /**
  * @file base.h
- * @brief defines configuration macros
- * @date 2024-02-21
+ * @brief 系统无关的通用配置
  */
 #pragma once
 

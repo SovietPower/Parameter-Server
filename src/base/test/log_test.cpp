@@ -1,3 +1,6 @@
+/**
+ * @file Log_test.cpp
+ */
 #if false
 #include <gtest/gtest.h>
 
@@ -8,7 +11,7 @@
 #define LOG_FATAL_THROW 1
 #endif
 #define VERBOSE 2 // 关闭 debug、info
-#include "../log.h"
+#include "../Log.h"
 
 TEST(BasicTest, T) {
 	using std::cout;

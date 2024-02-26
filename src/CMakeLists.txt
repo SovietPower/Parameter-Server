@@ -9,6 +9,7 @@ file(GLOB ps_lib_src
 	"${CMAKE_SOURCE_DIR}/src/base/*.cpp"
 	"${CMAKE_SOURCE_DIR}/src/kv_app/*.cpp"
 	"${CMAKE_SOURCE_DIR}/src/ps/*.cpp"
+	"${CMAKE_SOURCE_DIR}/src/ps/internal/*.cpp"
 	"${CMAKE_SOURCE_DIR}/src/utility/*.cpp"
 )
 target_sources(ps_lib PUBLIC ${ps_lib_src})
@@ -42,5 +43,5 @@ macro (AddTest target folder testFileName)
 	gtest_discover_tests(${target})
 endmacro()
 
-# AddTest(LogTest "base" "log_test")
+# AddTest(LogTest "base" "Log_test")
 AddTest(SVectorTest "utility" "SVector_test")
