@@ -18,7 +18,7 @@ struct Node {
 	};
 
 	/* 空值 */
-	static constexpr int kEmpty = -998244353; // std::numeric_limits<int>::max();
+	static constexpr int kEmpty = -1; // std::numeric_limits<int>::max();
 
 	/* 节点角色 */
 	Role role;

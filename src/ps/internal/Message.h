@@ -2,13 +2,10 @@
  * @file Message.h
  */
 #pragma once
-// #include <string> // 可删除，因为包含在 Node.h 里
-// #include <sstream> // 同上
-
-#include "base/Log.h"
-#include "ps/Base.h"
-#include "ps/internal/Node.h"
-#include "utility/SVector.h"
+#include "../../base/Log.h"
+#include "../../ps/Base.h"
+#include "../../ps/internal/Node.h"
+#include "../../utility/SVector.h"
 
 namespace ps {
 
@@ -23,22 +20,23 @@ struct Control {
 		EMPTY, ADD_NODE, ACK, BARRIER, HEARTBEAT, TERMINATE,
 	};
 
-	bool Empty() const {
+	bool IsEmpty() const {
 		return cmd == EMPTY;
+	}
+	bool IsACK() const {
+		return cmd == ACK;
 	}
 
 	/* 消息附带的操作 */
 	Command cmd;
 	/* 消息涉及的节点 */
 	std::vector<Node> nodes;
-	/* 消息的签名。可唯一映射到某条消息，用于消息确认与重发  */
-	uint64_t msg_sign;
 	/* 如果是屏障操作，表示屏障所影响的组 */
 	int barrier_group;
 
 	std::string DebugString(size_t tab = 0) const {
 		std::stringstream ss;
-		if (Empty()) {
+		if (IsEmpty()) {
 			ss << "{ Control (EMPTY) }";
 			return ss.str();
 		}
@@ -59,7 +57,7 @@ struct Control {
 		if (cmd == BARRIER) {
 			ss << ", barrier_group: " << barrier_group;
 		}
-		ss << ", msg_sign: " << msg_sign << ",\n";
+		ss << ",\n";
 
 		NewLine("nodes: [ ");
 		for (const Node& node: nodes) {
@@ -80,7 +78,7 @@ struct Meta {
 	~Meta() = default;
 
 	/* 空值 */
-	static constexpr int kEmpty = -998244353;
+	static constexpr int kEmpty = -1;
 
 	// TODO: this is what?
 	int head{kEmpty};
@@ -105,7 +103,10 @@ struct Meta {
 	Control control;
 
 	/* 消息的时间戳 */
-	int timestamp{-1};
+	int timestamp{kEmpty};
+	/* ACK 消息附带的签名。可唯一映射到某条消息，进行消息确认。
+	* TODO: 是否需要像 ps-lite 放到 Control 而非 Meta 里？ */
+	uint64_t msg_sign{0};
 	/* 消息的优先级。默认 0 */
 	int priority{0};
 	/* 消息包含数据的总长度（指 Message::Data） */
@@ -124,8 +125,9 @@ struct Meta {
 			<< ", R: " << receiver
 			<< ", request: " << request
 			<< ", timestamp: " << timestamp
+			<< ", msg_sign: " << msg_sign
 			<< ", head: " << (head == kEmpty ? -1 : kEmpty) << ",\n";
-		if (control.Empty()) {
+		if (control.IsEmpty()) {
 			// 数据信息
 			NewLine("contorl: EMPTY")
 				<< ", app_id: " << app_id
@@ -149,7 +151,6 @@ struct Meta {
 /**
  * @brief 在节点之间传输的消息，包含元信息和可选的数据。
  */
-template <typename Value = int>
 struct Message {
 	Meta meta;
 

@@ -13,7 +13,7 @@
 #include <type_traits>
 #include <initializer_list>
 
-#include "base/log.h"
+#include "../base/log.h"
 
 namespace ps {
 
@@ -88,8 +88,8 @@ struct Deleter {
 
 // --- SVector
 /**
- * SVector<T> 是一个变长数组， 提供的接口与 vector<T> 类似。
- * 特点是从另一个 SVector、vector 或数组（1）构造 SVector 时，可以选择零拷贝的方式，
+ * SVector<T> 是一个变长数组，提供的接口与 vector<T> 类似。
+ * 特点是从另一个 SVector、vector 或数组构造 SVector 时，可以选择零拷贝的方式，
  * 也就是让 SVector 直接与被赋值对象共享底层数组的 data 指针、而无需拷贝数据，
  * 使用引用计数保证底层的 data 被正确释放、不会出现悬垂指针。
  * 与 shared_ptr 类似，SVector 的非 const 操作不是线程安全的。
