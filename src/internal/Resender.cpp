@@ -3,7 +3,7 @@
 #include <thread>
 #include <vector>
 
-#include "../../ps/internal/Van.h"
+#include "../../internal/Van.h"
 
 namespace ps {
 

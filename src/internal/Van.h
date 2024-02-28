@@ -1,7 +1,7 @@
 /**
  * @file Van.h
  */
-#include "../../ps/internal/Node.h"
+#include "../../internal/Node.h"
 
 namespace ps {
 

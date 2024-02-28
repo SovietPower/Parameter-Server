@@ -4,7 +4,7 @@
 #pragma once
 #include "../../base/Log.h"
 #include "../../ps/Base.h"
-#include "../../ps/internal/Node.h"
+#include "../../internal/Node.h"
 #include "../../utility/SVector.h"
 
 namespace ps {

@@ -9,7 +9,7 @@
 #include <unordered_map>
 #include <unordered_set>
 
-#include "../../ps/internal/Message.h"
+#include "../../internal/Message.h"
 
 namespace std {
 class thread;

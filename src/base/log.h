@@ -160,7 +160,7 @@ enum E_LOG_SEVERITY {
 #define DLOG_IF(severity, condition) LOG_IF(severity, condition)
 #endif
 
-// #define VLOG(n) LOG_INFO.stream()
+// #define VLOG(n) LOG(INFO).stream() // same as current LOG
 // #define LOG_EVERY_N(severity, n) LOG(severity)
 
 // --- log implementation

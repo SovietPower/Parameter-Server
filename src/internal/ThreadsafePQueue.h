@@ -7,7 +7,7 @@
 #include <vector>
 #include <condition_variable>
 
-#include "ps/internal/Message.h"
+#include "internal/Message.h"
 
 namespace ps {
 

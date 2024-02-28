@@ -7,12 +7,13 @@ target_include_directories(ps_lib PUBLIC "${CMAKE_SOURCE_DIR}/src")
 
 file(GLOB ps_lib_src
 	"${CMAKE_SOURCE_DIR}/src/base/*.cpp"
-	"${CMAKE_SOURCE_DIR}/src/kv_app/*.cpp"
+	"${CMAKE_SOURCE_DIR}/src/internal/*.cpp"
 	"${CMAKE_SOURCE_DIR}/src/ps/*.cpp"
-	"${CMAKE_SOURCE_DIR}/src/ps/internal/*.cpp"
 	"${CMAKE_SOURCE_DIR}/src/utility/*.cpp"
 )
 target_sources(ps_lib PUBLIC ${ps_lib_src})
+message("CMAKE_SOURCE_DIR: " ${CMAKE_SOURCE_DIR})
+message("ps_lib_src: " ${ps_lib_src})
 
 target_link_libraries(ps_lib PUBLIC fmt::fmt)
 
