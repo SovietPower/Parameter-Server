@@ -3,7 +3,7 @@
 #include <thread>
 #include <vector>
 
-#include "../../internal/Van.h"
+#include "../internal/Van.h"
 
 namespace ps {
 
@@ -11,7 +11,7 @@ Resender::Resender(int timeout_in_ms, int max_retry, Van* van): exit_(false) {
 	timeout_ = timeout_in_ms;
 	max_retry_ = max_retry;
 	van_ = van;
-	resender_ = new std::thread(&Resender::Resend, this);
+	resender_ = new std::thread(&Resender::ResendThread, this);
 }
 
 Resender::~Resender() {
@@ -81,7 +81,7 @@ uint64_t Resender::GetSign(const Message& msg) {
 		meta.request;
 }
 
-void Resender::Resend() {
+void Resender::ResendThread() {
 	std::vector<Message> tobe_send;
 	const auto timeout_time = Time(timeout_);
 	while (!exit_) {

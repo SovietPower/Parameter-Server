@@ -2,10 +2,10 @@
  * @file Message.h
  */
 #pragma once
-#include "../../base/Log.h"
-#include "../../ps/Base.h"
-#include "../../internal/Node.h"
-#include "../../utility/SVector.h"
+#include "../base/Log.h"
+#include "../ps/Base.h"
+#include "../internal/Node.h"
+#include "../utility/SVector.h"
 
 namespace ps {
 
@@ -91,7 +91,8 @@ struct Meta {
 	/* 接收者的节点 ID */
 	int receiver{kEmpty};
 
-	/* 消息是一次请求还是回应 */
+	/* 消息是一次请求还是回应。
+	* 当消息类型为 Barrier 时，请求则代表节点进入阻塞，非请求代表 scheduler 通知节点退出阻塞。 */
 	bool request{false};
 	/* 消息是否需要提交数据 */
 	bool push{false};

@@ -24,15 +24,15 @@ class Environment {
 	 * @brief 初始化配置信息。非线程安全。
 	 */
 	static void Init(const std::unordered_map<std::string, std::string>& cfg) {
-		Environment* env = Get();
+		Environment* env = GetEnvironment();
 		env->cfg_ = cfg;
 	}
 
 	/**
 	 * @brief 获取指定配置的值。不存在则返回 nullptr。
 	 */
-	static const char* GetValue(const char* key) {
-		auto& cfg = Get()->cfg_;
+	static const char* Get(const char* key) {
+		auto& cfg = GetEnvironment()->cfg_;
 		auto it = cfg.find(std::string(key));
 		if (it == cfg.end()) {
 			return std::getenv(key);
@@ -41,9 +41,17 @@ class Environment {
 	}
 
 	/**
-	 * @brief 获取单例对象。没什么用。
+	 * @brief 获取指定配置的值。不存在则返回 default_val。
 	 */
-	static Environment* Get() {
+	static const char* GetOrDefault(const char* key, const char* default_val) {
+		auto ret = Get(key);
+		return ret == nullptr ? default_val : ret;
+	}
+
+	/**
+	 * @brief 获取单例对象。不直接使用。
+	 */
+	static Environment* GetEnvironment() {
 		static Environment env;
 		return &env;
 	}

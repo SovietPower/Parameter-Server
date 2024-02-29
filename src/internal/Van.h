@@ -1,20 +1,137 @@
 /**
  * @file Van.h
  */
-#include "../../internal/Node.h"
+#pragma once
+#include <mutex>
+#include <atomic>
+#include <memory>
+#include <vector>
+#include <unordered_map>
+#include <unordered_set>
+
+#include "../internal/Node.h"
+#include "../internal/Message.h"
 
 namespace ps {
 
-class Van {
- public:
+class Resender;
 
+/**
+ * @brief 具体执行信息收发的对象。
+ * 使用前后，必须调用 Start 和 Stop 来启动或结束 Van。
+ * 除非特殊声明，否则所有接口都是线程安全的。
+ */
+class Van {
+ private:
+	/**
+	 * @brief 使用工厂函数 Create 创建 Van。
+	 */
+	Van() = default;
+
+ public:
+	virtual ~Van() = default;
+
+	/**
+	 * @brief 创建指定类型的 Van。
+	 */
+	static Van* Create(const std::string& van_type);
+	/**
+	 * @brief 启动 Van：
+	 * 初始化节点信息；与 scheduler 建立链接；让 scheduler 添加自己；分别启动接收消息、发送心跳、超时重发（如果设置）的线程。
+	 */
+	virtual void Start(int customer_id);
+	/**
+	 * @brief 结束 Van：
+	 * 停止接收、心跳、重发线程，清空成员。
+	 */
+	virtual void Stop();
+
+	/**
+	 * @brief 发送一条消息。可能被多个线程同时执行。
+	 * @return 返回发送的字节数。如果失败返回-1。
+	 */
+	int Send(const Message& msg);
+	/**
+	 * @brief 获取下个可用的时间戳。
+	 */
+	int GetAvailableTimestamp() {
+		return timestamp_++;
+	}
+	/**
+	 * @brief 检查 Van 是否已启动完成、可以进行发送消息。
+	 */
+	bool IsReady() {
+		return ready_;
+	}
+	/**
+	 * @brief
+	 */
 	const Node& my_node() const {
 		return my_node_;
 	}
 
- private:
-	Node my_node_;
+ protected:
+	/**
+	 * @brief 与某个节点建立连接。
+	 */
+	virtual void Connect(const Node& node) = 0;
+	/**
+	 * @brief
+	 * @param node
+	 * @param max_retry
+	 * @return int
+	 */
+	virtual int Bind(const Node& node, int max_retry) = 0;
 
+	Node my_node_;
+	Node scheduler_;
+	bool is_scheduler_;
+
+	/* 系统当前启动阶段 */
+	int init_stage_{0};
+	std::mutex start_mu_;
+
+ private:
+	/**
+	 * @brief 接收线程的执行逻辑。接收消息是单线程的。
+	 */
+	void ReceiveThread();
+	/**
+	 * @brief 发送心跳线程的执行逻辑。
+	 */
+	void HeartbeatThread();
+
+	/* Van 是否已启动完成、可以进行发送消息 */
+	std::atomic<bool> ready_{false};
+	/* 第一个可用的时间戳。暂时先用 int。 */
+	std::atomic<int> timestamp_{0};
+	/* 收到消息时，丢弃消息的概率。用于测试 */
+	int drop_rate_ = 0;
+
+	int num_servers_{0};
+	int num_workers_{0};
+
+	/* Resender 需要在 Stop 时手动释放，以等待 resend 线程正常发送完再退出 */
+	Resender* resender{nullptr};
+	std::unique_ptr<std::thread> receive_thread_;
+	std::unique_ptr<std::thread> heartbeat_thread_;
+
+	/* 历史总共发送的字节数 */
+	std::atomic<size_t> send_bytes_{0};
+	/* 历史总共接收的字节数。由接收线程单线程处理，无需原子 */
+	size_t receive_bytes_{0};
+
+	/* 节点地址 -> node_id
+	* 通过节点地址（比如 IP:port）获取对应的节点 ID。包括所有已建立连接 (Connected) 的节点。
+	* 只会在第一次建立连接时被更新。 */
+	std::unordered_map<std::string, int> connected_nodes_;
+
+	/* node_id -> 最早加入的与当前节点同地址的 node_id
+	* 将后续加入的节点 ID 映射到最初加入的、有相同地址的节点 ID。
+	* 可用来减少某些消息的发送次数（相同节点的不同 customer 只需要发一次）。 */
+	std::unordered_map<int, int> shared_node_mapping_;
+
+	DISABLE_COPY_AND_ASSIGN(Van);
 };
 
 

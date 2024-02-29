@@ -9,7 +9,7 @@
 #include <unordered_map>
 #include <unordered_set>
 
-#include "../../internal/Message.h"
+#include "../internal/Message.h"
 
 namespace std {
 class thread;
@@ -48,7 +48,7 @@ class Resender {
 	/**
 	 * @brief 重发线程的检查与重发逻辑。
 	 */
-	void Resend();
+	void ResendThread();
 
  	using Time = std::chrono::milliseconds;
 	/**

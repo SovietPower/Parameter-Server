@@ -31,7 +31,7 @@ struct Node {
 	std::string hostname;
 	/* 节点绑定的端口号 */
 	int port;
-	/* 节点是否是通过故障重启加入的，而非最初创建是节点 */
+	/* 节点是否是通过故障重启加入的，而非最初创建的节点 */
 	bool is_recovered;
 
 	std::string DebugString(size_t tab = 0) const {
