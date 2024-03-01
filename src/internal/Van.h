@@ -3,26 +3,27 @@
  */
 #pragma once
 #include <mutex>
+#include <array>
 #include <atomic>
 #include <memory>
 #include <vector>
 #include <unordered_map>
 #include <unordered_set>
 
-#include "../internal/Node.h"
 #include "../internal/Message.h"
 
 namespace ps {
 
+class PBMeta;
 class Resender;
 
 /**
  * @brief 具体执行信息收发的对象。
- * 使用前后，必须调用 Start 和 Stop 来启动或结束 Van。
+ * 使用前后，必须调用 Start 和 Stop 来启动或结束 Van（由 PostOffice 保证）。
  * 除非特殊声明，否则所有接口都是线程安全的。
  */
 class Van {
- private:
+ protected:
 	/**
 	 * @brief 使用工厂函数 Create 创建 Van。
 	 */
@@ -31,13 +32,17 @@ class Van {
  public:
 	virtual ~Van() = default;
 
+	enum VanType {
+		ZMQ, P3, IBVerbs,
+	};
 	/**
 	 * @brief 创建指定类型的 Van。
 	 */
-	static Van* Create(const std::string& van_type);
+	static Van* Create(VanType van_type);
 	/**
 	 * @brief 启动 Van：
 	 * 初始化节点信息；与 scheduler 建立链接；让 scheduler 添加自己；分别启动接收消息、发送心跳、超时重发（如果设置）的线程。
+	 * 通过 PostOffice::Start 调用。
 	 */
 	virtual void Start(int customer_id);
 	/**
@@ -47,8 +52,9 @@ class Van {
 	virtual void Stop();
 
 	/**
-	 * @brief 发送一条消息。可能被多个线程同时执行。
-	 * @return 返回发送的字节数。如果失败返回-1。
+	 * @brief 发送一条消息的外部接口。可能被多个线程同时执行。
+	 * 实际调用 SendMsg、更新 send_bytes、触发 resender.OnSend。
+	 * @return 返回发送的字节数。失败则返回-1。
 	 */
 	int Send(const Message& msg);
 	/**
@@ -72,26 +78,87 @@ class Van {
 
  protected:
 	/**
+	 * @brief 将当前节点绑定到某个端口。
+	 * 为了保证成功，除了尝试绑定到 node.port 外，还会随机选择多个端口尝试绑定。
+	 * @param max_retry 最大尝试次数。
+	 * @return 返回实际绑定到的端口号。失败则返回-1。
+	 */
+	virtual int Bind(const Node& node, int max_retry) = 0;
+	/**
 	 * @brief 与某个节点建立连接。
 	 */
 	virtual void Connect(const Node& node) = 0;
 	/**
-	 * @brief
-	 * @param node
-	 * @param max_retry
-	 * @return int
+	 * @brief 发送一条消息的内部实现。
+	 * @return 返回发送的字节数。失败则返回-1。
 	 */
-	virtual int Bind(const Node& node, int max_retry) = 0;
+	virtual int SendMsg(const Message& msg) = 0;
+	/**
+	 * @brief 接收一条消息的内部实现。会阻塞直到收到消息。
+	 * @param msg 空初始化的 Message。
+	 * @return 返回收到的字节数。失败则返回-1。
+	 */
+	virtual int ReceiveMsg(Message* msg) = 0;
+
+	/**
+	 * @brief 将消息元信息打包到 C string。
+	 * @param meta_buf
+	 * @param buf_size
+	 */
+	void PackMetaToString(const Meta& meta, char** meta_buf, int* buf_size);
+	/**
+	 * @brief 从 C string 解包获取消息元信息。
+	 */
+	void UnpackMetaFromString(const char* meta_buf, int buf_size, Meta* meta);
+	/**
+	 * @brief 将消息元信息打包到 Protobuf。
+	 */
+	// void PackMetaToPB(const Meta& meta, PBMeta* pb);
 
 	Node my_node_;
 	Node scheduler_;
 	bool is_scheduler_;
 
 	/* 系统当前启动阶段 */
-	int init_stage_{0};
+	int start_stage_{0};
 	std::mutex start_mu_;
 
  private:
+	/**
+	 * @brief 处理 Terminate 命令的逻辑。
+	 */
+	void HandleTerminateCmd();
+	/**
+	 * @brief 处理 Barrier 命令的逻辑。
+	 */
+	void HandleBarrierCmd(const Message& msg);
+	/**
+	 * @brief 处理 Heartbeat 命令的逻辑。
+	 */
+	void HandleHeartbeatCmd(const Message& msg);
+	/**
+	 * @brief 处理数据信息 (EmptyCmd) 的逻辑。
+	 */
+	void HandleDataMsg(const Message& msg);
+	/**
+	 * @brief 处理 AddNode 消息的逻辑。
+	 */
+	void HandleAddNodeCmd(const Message& msg, const std::vector<Node>& nodes, const std::vector<Node>& recovery_nodes);
+	/**
+	 * @brief 在执行 AddNode 时调用：
+	 * Scheduler 端：为新加入的节点分配节点 ID；
+	 * Server/Worker 端：更新自己的节点 ID 为从 scheduler 那里获得的 ID。
+	 */
+	void UpdateNodeID(const Message& msg, const std::vector<Node>& nodes, const std::vector<Node>& recovery_nodes, const std::unordered_set<int>& dead_nodes);
+	/**
+	 * @brief 处理 scheduler 端 AddNode 消息的具体逻辑。
+	 */
+	void HandleAddNodeCmdAtScheduler(const Message& msg, const std::vector<Node>& nodes, const std::vector<Node>& recovery_nodes);
+	/**
+	 * @brief 处理 server, worker 端 AddNode 消息的具体逻辑。
+	 */
+	void HandleAddNodeCmdAtSAndW(const Message& msg, const std::vector<Node>& nodes, const std::vector<Node>& recovery_nodes);
+
 	/**
 	 * @brief 接收线程的执行逻辑。接收消息是单线程的。
 	 */
@@ -101,25 +168,30 @@ class Van {
 	 */
 	void HeartbeatThread();
 
-	/* Van 是否已启动完成、可以进行发送消息 */
+	/* Van 是否已成功加入系统、可以进行发送消息 */
 	std::atomic<bool> ready_{false};
 	/* 第一个可用的时间戳。暂时先用 int。 */
 	std::atomic<int> timestamp_{0};
 	/* 收到消息时，丢弃消息的概率。用于测试 */
-	int drop_rate_ = 0;
+	int drop_rate_{0};
 
 	int num_servers_{0};
 	int num_workers_{0};
 
 	/* Resender 需要在 Stop 时手动释放，以等待 resend 线程正常发送完再退出 */
-	Resender* resender{nullptr};
+	Resender* resender_{nullptr};
 	std::unique_ptr<std::thread> receive_thread_;
 	std::unique_ptr<std::thread> heartbeat_thread_;
+	/* 心跳超时时间，从配置中读取。单位为秒。为0则不检查 */
+	int heartbeat_timeout_;
 
 	/* 历史总共发送的字节数 */
 	std::atomic<size_t> send_bytes_{0};
 	/* 历史总共接收的字节数。由接收线程单线程处理，无需原子 */
 	size_t receive_bytes_{0};
+
+	/* 每个组的 barrier 计数。即当前有多少属于该组的节点进入了 barrier 阻塞 */
+	std::array<int, 8> barrier_count_ {0, 0, 0, 0, 0, 0, 0, 0};
 
 	/* 节点地址 -> node_id
 	* 通过节点地址（比如 IP:port）获取对应的节点 ID。包括所有已建立连接 (Connected) 的节点。

@@ -35,7 +35,7 @@ class Resender {
 
 	/**
 	 * @brief 收到消息时需执行的逻辑：如果是 ACK 消息，则将原消息移出 tobe_acked；否则发送 ACK 消息，并将其加入 received。
-	 * @return 如果消息已接收过、无需重复处理，或是 ACK 消息，则返回 true
+	 * @return 如果消息已接收过、无需重复处理，或只是 ACK 消息，则返回 true
 	 */
 	bool OnReceive(const Message& msg);
 

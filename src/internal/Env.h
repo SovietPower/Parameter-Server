@@ -39,13 +39,26 @@ class Environment {
 		}
 		return (it->second).c_str();
 	}
-
 	/**
 	 * @brief 获取指定配置的值。不存在则返回 default_val。
 	 */
 	static const char* GetOrDefault(const char* key, const char* default_val) {
 		auto ret = Get(key);
 		return ret == nullptr ? default_val : ret;
+	}
+
+	/**
+	 * @brief 获取指定整数类型配置的值。不存在则返回 0。
+	 */
+	static int GetInt(const char* key) {
+		return GetIntOrDefault(key, 0);
+	}
+	/**
+	 * @brief 获取指定整数类型配置的值。不存在则返回 default_val。
+	 */
+	static int GetIntOrDefault(const char* key, int default_val) {
+		auto ret = Get(key);
+		return ret ? default_val : std::atoi(ret);
 	}
 
 	/**

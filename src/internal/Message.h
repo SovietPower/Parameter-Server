@@ -157,6 +157,7 @@ struct Message {
 
 	/**
 	 * @brief 消息可能附带的数据。包括三部分：K、V、每个 V 的长度（可选）。
+	 * 为了减少 Message 大小，保存结构体指针。
 	 */
 	struct Data {
 		SVector<Key> keys;
@@ -181,15 +182,15 @@ struct Message {
 		meta.data_size += l.size() * sizeof(size_t);
 	}
 	SVector<Key>& GetKeys() {
-		CHECK_NOTNULL(data);
+		DCHECK_NOTNULL(data);
 		return data->keys;
 	}
 	SVector<Value>& GetValues() {
-		CHECK_NOTNULL(data);
+		DCHECK_NOTNULL(data);
 		return data->values;
 	}
 	SVector<size_t>& GetLens() {
-		CHECK_NOTNULL(data);
+		DCHECK_NOTNULL(data);
 		return data->lens;
 	}
 
