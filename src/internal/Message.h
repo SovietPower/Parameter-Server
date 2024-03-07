@@ -11,6 +11,7 @@ namespace ps {
 
 /**
  * @brief 系统控制消息的元信息，影响系统状态。
+ * 当 Command 为 EMPTY 时，代表消息为 server/worker 端的数据请求或响应。
  */
 struct Control {
 	Control(): cmd(EMPTY) {}
@@ -29,7 +30,7 @@ struct Control {
 
 	/* 消息附带的操作 */
 	Command cmd;
-	/* 消息涉及的节点 */
+	/* 操作涉及的节点 */
 	std::vector<Node> nodes;
 	/* 如果是屏障操作，表示屏障所影响的组 */
 	int barrier_group;

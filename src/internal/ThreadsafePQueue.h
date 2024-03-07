@@ -7,7 +7,7 @@
 #include <vector>
 #include <condition_variable>
 
-#include "internal/Message.h"
+#include "../internal/Message.h"
 
 namespace ps {
 
@@ -34,6 +34,7 @@ class ThreadsafePQueue {
 	/**
 	 * @brief 阻塞等待，直到队列非空、成功获取到一个元素
 	 */
+	[[nodiscard]]
 	Message WaitAndPop() {
 		std::unique_lock<std::mutex> lock(mu_);
 		while (queue_.empty()) {

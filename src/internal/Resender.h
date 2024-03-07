@@ -20,7 +20,7 @@ namespace ps {
 class Van;
 
 /**
- * @brief 当一条消息没有在指定时间内收到确认时，进行重发。
+ * @brief 当一条消息没有在指定时间内收到确认时，进行重发；在收到消息时，回复确认。
  * 需要在收发消息时调用 OnReceive/OnSend。
  */
 class Resender {

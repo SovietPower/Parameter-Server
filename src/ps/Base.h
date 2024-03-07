@@ -17,6 +17,9 @@ static constexpr int kServerGroup = 2;
 /* worker 所在组的 ID */
 static constexpr int kWorkerGroup = 4;
 
+/* 包含所有节点的组 ID */
+static constexpr int kAllNodes = kScheduler + kServerGroup + kWorkerGroup;
+
 /* Key 的类型 */
 using Key = uint64_t;
 /* 可用 Key 的最大值 */

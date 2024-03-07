@@ -39,7 +39,7 @@ void Resender::OnSend(const Message& msg) {
 }
 
 bool Resender::OnReceive(const Message& msg) {
-	if (msg.meta.control.cmd == Control::TERMINATE) {
+	if (msg.meta.control.cmd == Control::TERMINATE) [[unlikely]] {
 		return false;
 	} else if (msg.meta.control.IsACK()) {
 		// 由于消息可能被发送多次，ACK 也可能被发送多次，但没有影响

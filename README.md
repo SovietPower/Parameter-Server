@@ -21,6 +21,7 @@ additional variables:
 - `PS_HEARTBEAT_TIMEOUT`：心跳超时时间。用途 TODO。默认为 0，即不会超时。单位为秒。
 - `PS_HEARTBEAT_INTERVAL`：心跳间隔时间。节点每隔一次该时间，就向 scheduler 发送心跳信息。默认为 0，即不会发送。单位为毫秒。
 - `PS_DROP_RATE`：收到消息后将其丢弃的概率。用于调试。
+- `PS_VAN_TYPE`：van 的类型，默认为 ZMQ。
 
 不确定：
 

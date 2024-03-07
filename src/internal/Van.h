@@ -32,16 +32,13 @@ class Van {
  public:
 	virtual ~Van() = default;
 
-	enum VanType {
-		ZMQ, P3, IBVerbs,
-	};
 	/**
 	 * @brief 创建指定类型的 Van。
 	 */
-	static Van* Create(VanType van_type);
+	static Van* Create(std::string van_type);
 	/**
 	 * @brief 启动 Van：
-	 * 初始化节点信息；与 scheduler 建立链接；让 scheduler 添加自己；分别启动接收消息、发送心跳、超时重发（如果设置）的线程。
+	 * 初始化节点信息；与 scheduler 建立链接；让 scheduler 添加自己；分别启动接收消息、发送心跳（如果不是 scheduler）、超时重发（如果设置）的线程。
 	 * 通过 PostOffice::Start 调用。
 	 */
 	virtual void Start(int customer_id);
@@ -130,10 +127,13 @@ class Van {
 	void HandleTerminateCmd();
 	/**
 	 * @brief 处理 Barrier 命令的逻辑。
+	 * Scheduler 端：接收 Barrier 请求，更新对应组的 Barrier 计数；在计数达到指定值时通知该组节点结束 Barrier。
+	 * Server/Worker 端：接收结束 Barrier 指令，通过 PostOffice 退出 Barrier。
 	 */
 	void HandleBarrierCmd(const Message& msg);
 	/**
 	 * @brief 处理 Heartbeat 命令的逻辑。
+	 * 通过 PostOffice 更新心跳时间。如果是 scheduler 还需回复心跳，供其它节点更新时间。
 	 */
 	void HandleHeartbeatCmd(const Message& msg);
 	/**
@@ -142,22 +142,25 @@ class Van {
 	void HandleDataMsg(const Message& msg);
 	/**
 	 * @brief 处理 AddNode 消息的逻辑。
+	 * 调用 UpdateNodeID，然后根据身份调用HandleAddNodeCmdAtScheduler 或 HandleAddNodeCmdAtSAndW
 	 */
-	void HandleAddNodeCmd(const Message& msg, const std::vector<Node>& nodes, const std::vector<Node>& recovery_nodes);
+	void HandleAddNodeCmd(Message& msg, std::vector<Node>& nodes, std::vector<Node>& recovered_nodes);
 	/**
-	 * @brief 在执行 AddNode 时调用：
+	 * @brief 更新节点 ID。在执行 AddNode 时调用。
 	 * Scheduler 端：为新加入的节点分配节点 ID；
 	 * Server/Worker 端：更新自己的节点 ID 为从 scheduler 那里获得的 ID。
 	 */
-	void UpdateNodeID(const Message& msg, const std::vector<Node>& nodes, const std::vector<Node>& recovery_nodes, const std::unordered_set<int>& dead_nodes);
+	void UpdateNodeID(Message& msg, std::vector<Node>& nodes, std::vector<Node>& recovered_nodes);
 	/**
 	 * @brief 处理 scheduler 端 AddNode 消息的具体逻辑。
 	 */
-	void HandleAddNodeCmdAtScheduler(const Message& msg, const std::vector<Node>& nodes, const std::vector<Node>& recovery_nodes);
+	void HandleAddNodeCmdAtScheduler(std::vector<Node>& nodes, std::vector<Node>& recovered_nodes);
 	/**
-	 * @brief 处理 server, worker 端 AddNode 消息的具体逻辑。
+	 * @brief 处理 server, worker 端 AddNode 消息的具体逻辑：
+	 * 如果节点之前没有和请求节点建立连接，则建立。
+	 * 节点不是和所有节点都要建立连接，比如 worker 实际只会和 server 建立连接。
 	 */
-	void HandleAddNodeCmdAtSAndW(const Message& msg, const std::vector<Node>& nodes, const std::vector<Node>& recovery_nodes);
+	void HandleAddNodeCmdAtSAndW(const Message& msg);
 
 	/**
 	 * @brief 接收线程的执行逻辑。接收消息是单线程的。
@@ -175,6 +178,7 @@ class Van {
 	/* 收到消息时，丢弃消息的概率。用于测试 */
 	int drop_rate_{0};
 
+	/* 与当前节点建立了连接的 server/worker 数量 */
 	int num_servers_{0};
 	int num_workers_{0};
 
@@ -193,13 +197,15 @@ class Van {
 	/* 每个组的 barrier 计数。即当前有多少属于该组的节点进入了 barrier 阻塞 */
 	std::array<int, 8> barrier_count_ {0, 0, 0, 0, 0, 0, 0, 0};
 
-	/* 节点地址 -> node_id
+	/* 节点地址 -> node_id.
 	* 通过节点地址（比如 IP:port）获取对应的节点 ID。包括所有已建立连接 (Connected) 的节点。
 	* 只会在第一次建立连接时被更新。 */
 	std::unordered_map<std::string, int> connected_nodes_;
 
-	/* node_id -> 最早加入的与当前节点同地址的 node_id
+	/* node_id -> 最早加入的与当前节点同地址的 node_id.
 	* 将后续加入的节点 ID 映射到最初加入的、有相同地址的节点 ID。
+	* 如果某节点 ID 在该映射中，则代表存在另一个节点与其有相同地址，即它们是同一进程上的不同 customer。
+	* （注意节点指逻辑节点 customer，一个物理节点即同一个地址上可以有多个逻辑节点）。
 	* 可用来减少某些消息的发送次数（相同节点的不同 customer 只需要发一次）。 */
 	std::unordered_map<int, int> shared_node_mapping_;
 

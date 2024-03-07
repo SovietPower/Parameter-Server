@@ -19,7 +19,7 @@ class Customer;
  * 使用前后，必须调用 Start 和 Finalize 来启动或结束系统。
  * 除非特殊声明，否则所有接口都是线程安全的。
  */
-class PostOffice {
+class PostOffice final {
  private:
 	PostOffice() = default;
 	~PostOffice();
@@ -60,8 +60,8 @@ class PostOffice {
 
 	/**
 	 * @brief 在指定组中建立屏障，阻塞该组的所有节点，直到全部进入屏障。
-	 * @param customer_id
-	 * @param group_id
+	 * @param customer_id 发送同步请求的 customer
+	 * @param group_id 需要进行同步的范围
 	 */
 	void Barrier(int customer_id, int group_id);
 	/**
@@ -128,13 +128,15 @@ class PostOffice {
 	}
 	/**
 	 * @brief 获取距上次心跳时间已超过指定时间的节点 ID。
+	 * 如果调用者是 scheduler，则获取超时的 worker/server；否则仅获取 scheduler（如果超时）。
 	 */
 	std::vector<int> GetDeadNodes(int time_in_sec = 60);
+
 	/**
 	 * @brief 更新某节点的最新心跳时间。
 	 */
 	void UpdateHeartbeat(int node_id, std::time_t t) {
-		std::lock_guard<std::mutex> lock(heartbeat_mu_);
+		std::lock_guard lock(heartbeat_mu_);
 		heartbeats_[node_id] = t;
 	}
 
@@ -177,21 +179,22 @@ class PostOffice {
 	/* 系统退出时需要执行的回调 */
 	Callback exit_callback_;
 
-	std::condition_variable barrier_cond_;
-	std::mutex barrier_mu_;
 	/* 每个服务器存储的 key 的区间 */
 	std::vector<Range> server_key_ranges_;
-	std::mutex server_key_ranges_mu_;
+	mutable std::mutex server_key_ranges_mu_;
 	/* 每个节点上次收到心跳的时间 */
 	std::unordered_map<int, time_t> heartbeats_;
-	std::mutex heartbeat_mu_;
+	mutable std::mutex heartbeat_mu_;
 
 	/* app_id -> (customer_id -> Customer*).
 	通过 (app_id, customer_id) 获取指定 customer */
 	std::unordered_map<int, std::unordered_map<int, Customer*>> customers_;
+	mutable std::mutex customers_mu_;
 
-	/* app_id -> (customer_id -> 该 customer 是否同步完成) */
+	/* app_id -> (customer_id -> 该 customer 是否同步完成). */
 	std::unordered_map<int, std::unordered_map<int, bool>> barrier_done_;
+	mutable std::mutex barrier_mu_;
+	std::condition_variable barrier_cond_;
 
 	/* group_id -> node_ids which belong to this group.
 	获取某个组所包含的节点 ID */
