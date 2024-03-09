@@ -64,7 +64,7 @@ struct Deleter {
 	explicit Deleter(DeleterType dt, Allocator* alloc = nullptr, size_t cap = 0)
 			: flag(dt), allocator(alloc), capacity(cap) {
 		if (flag != CannotFree) {
-			DCHECK_NOTNULL(allocator);
+			CHECK_NOTNULL(allocator);
 		}
 	}
 
@@ -96,6 +96,8 @@ struct Deleter {
 
  * 注：为了减少接口数量，allocator 默认进行值初始化，且只有最基本的构造函数支持设置 allocator。可以先设置后，再调用其它逻辑实现其它的构造方式。
  * 因此由于共享的复杂性，不能与 vector 行为一致：整个 data [0, capacity) 的位置的元素都要完成构造，即使没有使用（因此 T 需要可默认构造）。这样释放时不需要已知 size，只需要 capacity。
+
+ * 为了发送，SVector<T> 可以转成 SVector<char> 供 protobuf 暂存，但使用时要转回 SVector<T>。
  */
 
 /**
@@ -137,39 +139,55 @@ class SVector {
 
 	/**
 	 * @brief 通过 SVector 构造，与其共享底层数组和引用计数，无需拷贝。
-	 * @param other 另一个 SVector。~~不需要与其有相同的模板类型，但 U* 必须可转换为 T*~~
+	 * @param other 另一个 SVector。不需要与其有相同的模板类型，但 U* 必须可转换为 T*。
 	 */
-	SVector(const SVector& other) {
+	template <typename U>
+	SVector(const SVector<U>& other) {
 		*this = other;
 	}
-	SVector(SVector&& other) {
+	template <typename U>
+	SVector(SVector<U>&& other) {
 		*this = std::move(other);
 	}
 
 	/**
 	 * @brief 通过 SVector 赋值，与其共享底层数组和引用计数，无需拷贝。
-	 * @param other 另一个 SVector。~~不需要与其有相同的模板类型，但 U* 必须可转换为 T*~~
+	 * @param other 另一个 SVector。不需要与其有相同的模板类型，但 U* 必须可转换为 T*。
 	*/
-	SVector& operator = (const SVector& other) {
+	template <typename U>
+	SVector& operator = (const SVector<U>& other) {
 		if (this == &other) {
 			return *this;
 		}
-		size_ = other.size();
-		capacity_ = other.capacity();
-		ptr_ = other.ptr_;
+		// size_ = other.size();
+		// capacity_ = other.capacity();
+		// ptr_ = other.ptr_;
+
+		size_ = other.size() * sizeof(U) / sizeof(T);
+		capacity_ = other.capacity_ * sizeof(U) / sizeof(T);
+		CHECK_EQ(size_ * sizeof(T), other.size() * sizeof(U)) << "size should be divided";
+
+		// 与另一个 shared_ptr 共享计数，并拷贝其析构函数；但将其保存的指针转为 T* 保存。
+		ptr_ = std::shared_ptr<T>(other.ptr_, reinterpret_cast<T*>(other.data()));
+
 		allocator = other.allocator;
 		return *this;
-
-		// // 与另一个 shared_ptr 共享计数，并拷贝其析构函数；将其保存的指针转为 T* 保存。
-		// // ptr_ = std::shared_ptr<T>(other.getSharedPtr(), reinterpret_cast<T*>(other.data()));
 	}
-	SVector& operator = (SVector&& other) {
+	template <typename U>
+	SVector& operator = (SVector<U>&& other) {
 		if (this == &other) {
 			return *this;
 		}
-		size_ = other.size_;
-		capacity_ = other.capacity_;
-		ptr_ = std::move(other.ptr_);
+		// size_ = other.size_;
+		// capacity_ = other.capacity_;
+		// ptr_ = std::move(other.ptr_);
+
+		size_ = other.size() * sizeof(U) / sizeof(T);
+		capacity_ = other.capacity_ * sizeof(U) / sizeof(T);
+		CHECK_EQ(size_ * sizeof(T), other.size() * sizeof(U)) << "size should be divided";
+
+		ptr_ = std::shared_ptr<T>(std::move(other.ptr_), reinterpret_cast<T*>(other.data()));
+
 		allocator = std::move(other.allocator);
 		other.size_ = 0;
 		other.capacity_ = 0;
@@ -302,6 +320,17 @@ class SVector {
 		size_ = size;
 		capacity_ = size;
 		DeleterT deleter = dt == CannotFree ? DeleterT(CannotFree) : DeleterT(dt, &allocator, size);
+		ptr_.reset(data, deleter);
+	}
+	/**
+	 * @brief 以 ptr 所指向的对象替换被管理对象，并更新 size_、capacity_ 为 size。
+	 * 将 deleter 设为任意的 deleter。
+	 */
+	template <typename Deleter>
+	void reset(T* data, size_t size, Deleter deleter) {
+		static_assert(!std::is_same_v<Deleter, DeleterType>);
+		size_ = size;
+		capacity_ = size;
 		ptr_.reset(data, deleter);
 	}
 

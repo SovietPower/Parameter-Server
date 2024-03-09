@@ -29,6 +29,7 @@
  * @brief Whether to print stack trace for fatal error,
  * enabled on linux when using gcc.
  */
+#if false // 没有 abi::xxx、backtrace、backtrace_symbols
 #if (defined(__GNUC__) && !defined(__MINGW32__) && !defined(__sun) && !defined(__SVR4) && \
 		!(defined __MINGW64__) && !(defined __ANDROID__))
 #if (!defined(LOG_STACK_TRACE))
@@ -36,6 +37,7 @@
 #endif
 #if (!defined(LOG_STACK_TRACE_SIZE))
 #define LOG_STACK_TRACE_SIZE 10
+#endif
 #endif
 #endif
 

@@ -3,11 +3,61 @@
  */
 #pragma once
 #include "../base/Log.h"
-#include "../ps/Base.h"
 #include "../internal/Node.h"
 #include "../utility/SVector.h"
 
 namespace ps {
+
+/**
+ * @brief Message 可保存的 data 类型。
+ */
+enum DataType: int32_t {
+	CHAR, UCHAR,
+	INT8, INT16, INT32, INT64,
+	UINT8, UINT16, UINT32, UINT64,
+	FLOAT, DOUBLE, OTHER
+};
+/**
+ * @brief for debug output
+ */
+static const char* DataTypeName[] = {
+	"CHAR", "UCHAR",
+	"INT8", "INT16", "INT32", "INT64",
+	"UINT8", "UINT16", "UINT32", "UINT64",
+	"FLOAT", "DOUBLE", "OTHER"
+};
+
+template <class T>
+constexpr DataType GetDataType() {
+	using std::is_same_v;
+	if constexpr (is_same_v<char, T>) {
+		return CHAR;
+	} else if constexpr (is_same_v<unsigned char, T>) {
+		return UCHAR;
+	} else if constexpr (is_same_v<int8_t, T>) {
+		return INT8;
+	} else if constexpr (is_same_v<int16_t, T>) {
+		return INT16;
+	} else if constexpr (is_same_v<int32_t, T>) {
+		return INT32;
+	} else if constexpr (is_same_v<int64_t, T>) {
+		return INT64;
+	} else if constexpr (is_same_v<uint8_t, T>) {
+		return UINT8;
+	} else if constexpr (is_same_v<uint16_t, T>) {
+		return UINT16;
+	} else if constexpr (is_same_v<uint32_t, T>) {
+		return UINT32;
+	} else if constexpr (is_same_v<uint64_t, T>) {
+		return UINT64;
+	} else if constexpr (is_same_v<float, T>) {
+		return FLOAT;
+	} else if constexpr (is_same_v<double, T>) {
+		return DOUBLE;
+	} else {
+		return OTHER;
+	}
+}
 
 /**
  * @brief 系统控制消息的元信息，影响系统状态。
@@ -17,7 +67,7 @@ struct Control {
 	Control(): cmd(EMPTY) {}
 	~Control() = default;
 
-	enum Command {
+	enum Command: int32_t {
 		EMPTY, ADD_NODE, ACK, BARRIER, HEARTBEAT, TERMINATE,
 	};
 
@@ -115,8 +165,9 @@ struct Meta {
 	size_t data_size{0};
 	/* 可选的消息体 */
 	std::string body;
-	/* msg.data 的数据类型。也许是为了恢复信息？ */
-	// std::vector<DataType> data_type; // TODO: 应该不需要
+	/* msg.data 各成员的数据类型。
+	* 可用于恢复类型，但只要保证发送接收的类型一致（本来也要保证），就不需要它 */
+	std::vector<DataType> data_type;
 
 	std::string DebugString(size_t tab = 0) const {
 		std::stringstream ss;
@@ -144,6 +195,13 @@ struct Meta {
 		if (!body.empty()) {
 			NewLine("body: ") << body << ",\n";
 		}
+		if (!data_type.empty()) {
+			NewLine("data_type: { ");
+			for (const auto& t: data_type) {
+				ss << DataTypeName[t] << ", ";
+			}
+			ss << "},\n";
+		}
 		#undef NewLine
 		ss << std::string(tab, '\t') << "}";
 		return ss.str();
@@ -155,52 +213,38 @@ struct Meta {
  */
 struct Message {
 	Meta meta;
-
 	/**
 	 * @brief 消息可能附带的数据。包括三部分：K、V、每个 V 的长度（可选）。
-	 * 为了减少 Message 大小，保存结构体指针。
 	 */
-	struct Data {
-		SVector<Key> keys;
-		SVector<Value> values;
-		SVector<size_t> lens;
-	};
+	std::vector<SVector<char>> data;
 
-	void SetData(const SVector<Key>& k, const SVector<Value>& v) {
-		// 不暴露 data，因为访问时需要检查和更新 meta
-		if (data == nullptr) {
-			data = new Data();
-		}
-		data->keys = k;
-		data->values = v;
-		meta.data_size += k.size() * sizeof(Key);
-		meta.data_size += v.size() * sizeof(Value);
-		// meta.data_type.push_back... // TODO: 应该不需要
-	}
-	void SetData(const SVector<Key>& k, const SVector<Value>& v, const SVector<size_t>& l) {
-		SetData(k, v);
-		data->lens = l;
-		meta.data_size += l.size() * sizeof(size_t);
-	}
-	SVector<Key>& GetKeys() {
-		DCHECK_NOTNULL(data);
-		return data->keys;
-	}
-	SVector<Value>& GetValues() {
-		DCHECK_NOTNULL(data);
-		return data->values;
-	}
-	SVector<size_t>& GetLens() {
-		DCHECK_NOTNULL(data);
-		return data->lens;
+	template <typename T>
+	void AddData(const SVector<T>& value) {
+		CHECK_EQ(data.size(), meta.data_type.size());
+		meta.data_type.push_back(GetDataType<T>());
+
+		SVector<char> new_data(value);
+		meta.data_size += new_data.size();
+		data.push_back(std::move(new_data));
 	}
 
- private:
-	Data* data{nullptr};
+	SVector<char>& GetKeys() {
+		DCHECK_GE(data.size(), 2);
+		return data[0];
+	}
+	SVector<char>& GetValues() {
+		DCHECK_GE(data.size(), 2);
+		return data[1];
+	}
+	SVector<char>& GetLens() {
+		DCHECK_EQ(data.size(), 3);
+		return data[2];
+	}
 
  public:
 	/**
-	 * @param verbose 为 0 则输出 data 的内容，否则仅输出 data 的长度。
+	 * 输出 data 时，仅输出各元素的长度。
+	 * @param verbose ~为 0 则输出 data 的内容，否则仅输出 data 的长度~ 不使用。否则要根据 DataType 转回类型太麻烦。
 	 */
 	std::string DebugString(size_t tab = 0, int verbose = 0) const {
 		std::stringstream ss;
@@ -208,21 +252,15 @@ struct Message {
 		std::string tabStr(tab + 1, '\t');
 		#define NewLine(str) ss << tabStr << str
 		NewLine("meta: ") << meta.DebugString(tab + 1) << ",\n";
-		if (data != nullptr) {
+		if (!data.empty()) {
+			CHECK_GE(data.size(), 2);
 			NewLine("data: [ ");
-			if (verbose == 0) {
-				ss << '\n';
-				NewLine("keys: ") << data->keys.DebugString(tab + 1) << ",\n";
-				NewLine("values: ") << data->values.DebugString(tab + 1) << ",\n";
-				if (data->lens.has_value()) {
-					NewLine("lens: ") << data->lens.DebugString(tab + 1) << ",\n";
-				}
-				NewLine("],\n");
-			} else {
-				ss << data->keys.size() << ", "
-					<< data->values.size() << ", ";
-				if (data->lens.has_value()) {
-					ss << data->lens.size() << ", ";
+			if (true) { // verbose
+				ss << " sizes: "
+					<< data[0].size() << ", "
+					<< data[1].size() << ", ";
+				if (data.size() == 3) {
+					ss << data[2].size() << ", ";
 				}
 				ss << "],\n";
 			}

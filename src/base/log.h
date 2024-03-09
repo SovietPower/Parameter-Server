@@ -40,6 +40,7 @@ inline void InitLogging(const char* argv0) {
 // use a light version of glog
 #include <ctime>
 #include <chrono>
+#include <iomanip> // put_time
 #include <sstream>
 #include <iostream>
 

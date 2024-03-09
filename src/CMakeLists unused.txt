@@ -15,7 +15,9 @@ target_sources(ps_lib PUBLIC ${ps_lib_src})
 message("CMAKE_SOURCE_DIR: " ${CMAKE_SOURCE_DIR})
 message("ps_lib_src: " ${ps_lib_src})
 
-target_link_libraries(ps_lib PUBLIC fmt::fmt)
+target_link_libraries(ps_lib PRIVATE fmt::fmt)
+target_link_libraries(ps_lib PRIVATE libzmq libzmq-static)
+target_link_libraries(ps_lib PRIVATE protobuf::libprotoc protobuf::libprotobuf protobuf::libprotobuf-lite)
 
 # setup gtest
 include(FetchContent)

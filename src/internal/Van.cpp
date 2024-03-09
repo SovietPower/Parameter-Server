@@ -2,12 +2,15 @@
 #include <random>
 
 #include "base/Log.h"
+#include "ps/Base.h"
 #include "internal/Env.h"
 #include "internal/ZMQVan.h"
 #include "internal/Customer.h"
 #include "internal/Resender.h"
 #include "internal/PostOffice.h"
 #include "utility/NetworkUtils.h"
+
+#include "./meta.pb.h"
 
 namespace {
 
@@ -190,7 +193,7 @@ void Van::HandleBarrierCmd(const Message& msg) {
 		++barrier_count_[group];
 		LOG(DEBUG) << "Increase barrier_count[" << group << "] to " << barrier_count_[group];
 
-		if (barrier_count_[group] == PostOffice::Get()->GetNodeIDs(group).size()) {
+		if (static_cast<size_t>(barrier_count_[group]) == PostOffice::Get()->GetNodeIDs(group).size()) {
 			barrier_count_[group] = 0;
 			LOG(DEBUG) << "Release group [" << group << "] from barrier";
 
@@ -269,7 +272,7 @@ void Van::UpdateNodeID(Message& msg, std::vector<Node>& nodes, std::vector<Node>
 		CHECK_EQ(msg_nodes.size(), 1);
 
 		auto& new_node = msg_nodes[0];
-		int num_nodes = PostOffice::Get()->num_servers() + PostOffice::Get()->num_workers();
+		size_t num_nodes = PostOffice::Get()->num_servers() + PostOffice::Get()->num_workers();
 		if (nodes.size() < num_nodes) {
 			// 目前还不是所有节点都已注册，直接放入 nodes
 			nodes.push_back(new_node);
@@ -284,7 +287,7 @@ void Van::UpdateNodeID(Message& msg, std::vector<Node>& nodes, std::vector<Node>
 
 			// 当前 nodes 已包含系统的所有节点，包括 scheduler
 			// 注意 scheduler 会在 nodes 最后面添加，所以要跳过最后一个节点
-			for (int i = 0; i + 1 < nodes.size(); ++i) {
+			for (size_t i = 0; i + 1 < nodes.size(); ++i) {
 				auto& node = nodes[i];
 				if (dead_nodes.find(node.id) != dead_nodes.end() && node.role == new_node.role) {
 					// 复用 dead node 的 ID
@@ -314,7 +317,7 @@ void Van::UpdateNodeID(Message& msg, std::vector<Node>& nodes, std::vector<Node>
 
 void Van::HandleAddNodeCmdAtScheduler(std::vector<Node>& nodes, std::vector<Node>& recovered_nodes) {
 	std::time_t now = std::time(nullptr);
-	int num_nodes = PostOffice::Get()->num_servers() + PostOffice::Get()->num_workers();
+	size_t num_nodes = PostOffice::Get()->num_servers() + PostOffice::Get()->num_workers();
 	if (nodes.size() == num_nodes) {
 		// 所有节点均已注册
 		// 只会在系统第一次完全启动时执行。在这之后 nodes.size = servers + workers + 1 (scheduler)
@@ -447,7 +450,7 @@ void Van::ReceiveThread() {
 
 		// 随机丢弃信息，用于调试（不能丢弃节点加入前的 AddNode msg）
 		if (ready_.load() && drop_rate_ > 0) {
-			if (rd() % 100 < drop_rate_) {
+			if (rd() % 100 < static_cast<unsigned int>(drop_rate_)) {
 				LOG(WARNING) << "Dropped msg: " << msg.DebugString();
 			}
 		}
@@ -515,27 +518,28 @@ void Van::PackMetaToString(const Meta& meta, char** meta_buf, int* buf_size) {
 	pb.set_priority(meta.priority);
 	pb.set_customer_id(meta.customer_id);
 	for (auto d : meta.data_type) pb.add_data_type(d);
-	if (!meta.control.empty()) {
+	if (!meta.control.IsEmpty()) {
 		auto ctrl = pb.mutable_control();
 		ctrl->set_cmd(meta.control.cmd);
 		if (meta.control.cmd == Control::BARRIER) {
 			ctrl->set_barrier_group(meta.control.barrier_group);
 		} else if (meta.control.cmd == Control::ACK) {
-			ctrl->set_msg_sig(meta.control.msg_sig);
+			pb.set_msg_sign(meta.msg_sign);
+			// ctrl->set_msg_sig(meta.control.msg_sig);
 		}
-		for (const auto& n : meta.control.node) {
+		for (const auto& n : meta.control.nodes) {
 			auto p = ctrl->add_node();
 			p->set_id(n.id);
 			p->set_role(n.role);
 			p->set_port(n.port);
 			p->set_hostname(n.hostname);
-			p->set_is_recovery(n.is_recovery);
+			p->set_is_recovered(n.is_recovered);
 			p->set_customer_id(n.customer_id);
 		}
 	}
 
 	// to string
-	*buf_size = pb.ByteSize();
+	*buf_size = pb.ByteSizeLong(); // ByteSize()
 	*meta_buf = new char[*buf_size + 1];
 	CHECK(pb.SerializeToArray(*meta_buf, *buf_size))
 			<< "failed to serialize protobuf";
@@ -567,7 +571,8 @@ void Van::UnpackMetaFromString(const char* meta_buf, int buf_size, Meta* meta) {
 		const auto& ctrl = pb.control();
 		meta->control.cmd = static_cast<Control::Command>(ctrl.cmd());
 		meta->control.barrier_group = ctrl.barrier_group();
-		meta->control.msg_sig = ctrl.msg_sig();
+		meta->msg_sign = pb.msg_sign();
+		// meta->control.msg_sig = ctrl.msg_sig();
 		for (int i = 0; i < ctrl.node_size(); ++i) {
 			const auto& p = ctrl.node(i);
 			Node n;
@@ -575,15 +580,13 @@ void Van::UnpackMetaFromString(const char* meta_buf, int buf_size, Meta* meta) {
 			n.port = p.port();
 			n.hostname = p.hostname();
 			n.id = p.has_id() ? p.id() : Node::kEmpty;
-			n.is_recovery = p.is_recovery();
+			n.is_recovered = p.is_recovered();
 			n.customer_id = p.customer_id();
-			meta->control.node.push_back(n);
+			meta->control.nodes.push_back(n);
 		}
 	} else {
 		meta->control.cmd = Control::EMPTY;
 	}
 }
-
-
 
 } // namespace ps

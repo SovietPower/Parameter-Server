@@ -4,11 +4,12 @@
  * @brief	network utilities
  */
 #pragma once
-// #include <unistd.h> // TODO: use it when in WSL
-#include <io.h>
-#include <process.h>
+#include <unistd.h> // use it when in WSL
 
-#ifdef _MSC_VER
+#define WINDOWS
+
+// #ifdef _MSC_VER // win 下的 gcc 编译不过去，只能用 WSL？
+#if defined (_MSC_VER) || defined (WINDOWS)
 #include <tchar.h>
 #include <winsock2.h>
 #include <windows.h>
@@ -21,6 +22,11 @@
 #include <netinet/in.h>
 #endif
 #include <string>
+
+#ifndef _MSC_VER
+#define _MSC_VER
+#define REVERT
+#endif
 
 namespace ps {
 
@@ -255,5 +261,9 @@ int GetAvailablePort() {
 #endif
 	return ret_port;
 }
+
+#ifdef REVERT
+#undef _MSC_VER
+#endif
 
 } // namespace ps

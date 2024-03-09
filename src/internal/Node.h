@@ -13,7 +13,7 @@ struct Node {
 	Node(): id(kEmpty), port(kEmpty), is_recovered(false) {}
 	~Node() = default;
 
-	enum Role {
+	enum Role: int32_t {
 		SERVER, WORKER, SCHEDULER,
 	};
 
