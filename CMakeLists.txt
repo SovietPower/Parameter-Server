@@ -115,7 +115,7 @@ macro (AddTest target folder testFileName)
 	add_executable(${target} "${CMAKE_SOURCE_DIR}/src/${folder}/test/${testFileName}.cpp")
 	target_link_libraries(${target} PRIVATE
 		GTest::gtest_main
-		ps_lib
+		# ps_lib # SVector 使用本地相对路径包含文件，就不需要链接和添加 include path 了
 	)
 	gtest_discover_tests(${target})
 endmacro()

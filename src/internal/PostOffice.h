@@ -7,11 +7,12 @@
 
 #include "base/Log.h"
 #include "ps/Range.h"
+#include "internal/Van.h"
 #include "internal/Message.h"
 
 namespace ps {
 
-class Van;
+// class Van;
 class Customer;
 
 /**
@@ -30,16 +31,16 @@ class PostOffice final {
 	/**
 	 * @brief 启动系统。
 	 * 只有 Start 调用完成后才能调用其它大多数函数。
-	 * @param customer_id 当前 customer_id。
-	 * @param argv0 程序名，用于初始化 glog。
-	 * @param need_barrier 是否需要阻塞当前节点，直到所有节点都启动完成。
+	 * @param customer_id 当前 customer_id
+	 * @param argv0 程序名，用于初始化 glog
+	 * @param need_barrier 是否需要阻塞当前节点，直到所有节点都启动完成
 	 */
 	void Start(int customer_id, const char* argv0, bool need_barrier = true);
 	/**
 	 * @brief 结束系统（当前节点退出系统）。
 	 * 所有节点在退出前都需调用，以结束整个系统。
-	 * @param customer_id 当前 customer_id。
-	 * @param need_barrier 是否需要阻塞当前节点，直到所有节点都退出系统。
+	 * @param customer_id 当前 customer_id
+	 * @param need_barrier 是否需要阻塞当前节点，直到所有节点都退出系统
 	 */
 	void Finalize(int customer_id, bool need_barrier = true);
 
@@ -54,7 +55,7 @@ class PostOffice final {
 	/**
 	 * @brief 从系统中获取某个 customer。
 	 * 如果在指定时间后仍不存在对应的 customer，返回 nullptr。
-	 * @param timeout_in_sec 超时时间。为 0 则要求立刻返回。
+	 * @param timeout_in_sec 超时时间。为 0 则要求立刻返回
 	 */
 	Customer* GetCustomer(int app_id, int customer_id, int timeout_in_sec = 0);
 
@@ -142,6 +143,7 @@ class PostOffice final {
 
 	/**
 	 * @brief 注册系统退出时要执行的回调函数。
+	 * 如果需要阻塞，则会在阻塞完后执行。
 	 */
 	void RegisterExitCallback(const Callback& cb) {
 		exit_callback_ = cb;

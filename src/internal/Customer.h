@@ -33,7 +33,7 @@ class Customer final {
 
 	/**
 	 * @brief 获取一个 request ID，用于发起新的数据请求。
-	 * @param receiver 接收节点的 ID（可以是 group ID）
+	 * @param receiver 接收节点的 ID 或组 ID
 	 * @return int 新请求使用的 request ID
 	 */
 	int NewRequest(int receiver);

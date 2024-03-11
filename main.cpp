@@ -1,9 +1,13 @@
 #include <iostream>
 
-#include "base/Log.h"
+#include "ps/PS.h"
 #include "internal/Message.h"
 
 int main(int, char**){
+	using std::cout;
+
+	cout << ps::IsScheduler() << '\n';
+
     std::cout << "Hello, from my-ps!\n";
 
 	LOG(DEBUG) << "this is a debug msg!";
