@@ -229,15 +229,15 @@ struct Message {
 	}
 
 	SVector<char>& GetKeys() {
-		DCHECK_GE(data.size(), 2);
+		CHECK_GE(data.size(), 2);
 		return data[0];
 	}
 	SVector<char>& GetValues() {
-		DCHECK_GE(data.size(), 2);
+		CHECK_GE(data.size(), 2);
 		return data[1];
 	}
 	SVector<char>& GetLens() {
-		DCHECK_EQ(data.size(), 3);
+		CHECK_EQ(data.size(), 3);
 		return data[2];
 	}
 

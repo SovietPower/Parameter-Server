@@ -16,7 +16,7 @@ namespace ps {
 /**
  * @brief 保存配置信息的单例类。
  * 如果未调用 Init 或配置未设置，则从环境变量读取。
- * 与 ps-lite 不同，不使用 shared_ptr，应该不会出现对象被销毁的问题。
+ * 与 ps-lite 不同，不使用 shared_ptr，但应该不会出现对象被销毁的问题。
  */
 class Environment {
  public:
@@ -44,7 +44,7 @@ class Environment {
 	 */
 	static const char* GetOrDefault(const char* key, const char* default_val) {
 		auto ret = Get(key);
-		return ret == nullptr ? default_val : ret;
+		return ret ? ret : default_val;
 	}
 
 	/**
@@ -58,8 +58,13 @@ class Environment {
 	 */
 	static int GetIntOrDefault(const char* key, int default_val) {
 		auto ret = Get(key);
-		return ret ? default_val : std::atoi(ret);
+		return ret ? std::atoi(ret) : default_val;
 	}
+
+	~Environment() = default; // 析构必须 public 供 shared_ptr 调用
+
+ private:
+	Environment() = default;
 
 	/**
 	 * @brief 获取单例对象。不直接使用。
@@ -68,11 +73,6 @@ class Environment {
 		static Environment env;
 		return &env;
 	}
-
-	~Environment() = default; // 析构必须 public 供 shared_ptr 调用
-
- private:
-	Environment() = default;
 
 	std::unordered_map<std::string, std::string> cfg_;
 };

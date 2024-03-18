@@ -29,7 +29,7 @@ struct KVPairs {
 	/* key */
 	SVector<Key> keys;
 	/* value */
-	SVector<Value> values;
+	SVector<Value> vals;
 	/* 每个 key 的 value 长度（可选） */
 	SVector<int> lens;
 	/* priority */
@@ -279,7 +279,7 @@ class KVWorker: public SimpleApp {
 	 * @param sliced 切分结果。sliced[i] 会保存 server i 所负责的所有键值
 	 */
 	using Slicer =
-		std::function<void(const Data& send,
+		std::function<void(Data& send,
 							const std::vector<Range>& ranges,
 							SlicedKVs* sliced)>;
 
@@ -334,7 +334,7 @@ class KVWorker: public SimpleApp {
 	/**
 	 * @brief 默认的 slicer
 	 */
-	void DefaultSlicer(const KVPairs<Value>& send,
+	void DefaultSlicer(KVPairs<Value>& send,
 						const std::vector<Range>& ranges,
 						SlicedKVs* sliced);
 
@@ -399,7 +399,10 @@ class KVServer : public SimpleApp {
 							const KVPairs<Value>& req_data,
 							KVServer* server)>;
 
-	void set_request_handle(const ReqHandle& request_handle) {
+	/**
+	 * @brief 设置收到请求时调用的回调 (KVApp)。
+	 */
+	void SetRequestHandle(const ReqHandle& request_handle) {
 		CHECK(static_cast<bool>(request_handle)) << "invalid request handle";
 		request_handle_ = request_handle;
 	}
@@ -512,7 +515,7 @@ void KVServer<Value>::Response(const KVMeta& req, const KVPairs<Value>& res) {
 
 template <typename Value>
 void KVWorker<Value>::DefaultSlicer(
-		const KVPairs<Value>& send, const std::vector<Range>& ranges,
+		KVPairs<Value>& send, const std::vector<Range>& ranges,
 		typename KVWorker<Value>::SlicedKVs* sliced) {
 	sliced->resize(ranges.size());
 
@@ -559,14 +562,14 @@ void KVWorker<Value>::DefaultSlicer(
 		}
 		sliced->at(i).first = true;
 		auto& kv = sliced->at(i).second;
-		kv.keys = send.keys.segment(pos[i], pos[i+1]);
+		kv.keys = send.keys.Slice(pos[i], pos[i+1]);
 		if (send.lens.size()) {
-			kv.lens = send.lens.segment(pos[i], pos[i+1]);
+			kv.lens = send.lens.Slice(pos[i], pos[i+1]);
 			for (int l : kv.lens) val_end += l;
-			kv.vals = send.vals.segment(val_begin, val_end);
+			kv.vals = send.vals.Slice(val_begin, val_end);
 			val_begin = val_end;
 		} else {
-			kv.vals = send.vals.segment(pos[i]*k, pos[i+1]*k);
+			kv.vals = send.vals.Slice(pos[i]*k, pos[i+1]*k);
 		}
 	}
 }
@@ -574,8 +577,10 @@ void KVWorker<Value>::DefaultSlicer(
 template <typename Value>
 void KVWorker<Value>::Send(int timestamp, bool push, bool pull, int cmd, const KVPairs<Value>& kvs) {
 	// slice the message
+	// kvs 的切分结果会保存到 sliced 中。sliced 非 const 所以 kvs 也只能非 const
+	// 需要保证不修改 sliced 的内容
 	SlicedKVs sliced;
-	slicer_(kvs, PostOffice::Get()->GetServerRanges(), &sliced);
+	slicer_(const_cast<KVPairs<Value>&>(kvs), PostOffice::Get()->GetServerRanges(), &sliced);
 
 	// need to add response first, since it will not always trigger the callback
 	int skipped = 0;

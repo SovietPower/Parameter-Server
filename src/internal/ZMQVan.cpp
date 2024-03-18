@@ -3,6 +3,7 @@
 #include <zmq.h>
 
 #include "internal/Env.h"
+#include "internal/PostOffice.h"
 
 // 均为默认实现
 
@@ -61,7 +62,7 @@ void ZMQVan::Start(int customer_id) {
 }
 
 void ZMQVan::Stop() {
-	LOG(INFO) << my_node_.ShortDebugString() << " is stopping";
+	PS_LOG_INFO << my_node_.ShortDebugString() << " is stopping";
 	Van::Stop();
 	// close sockets
 	int linger = 0;

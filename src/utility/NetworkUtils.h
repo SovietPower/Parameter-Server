@@ -6,10 +6,9 @@
 #pragma once
 #include <unistd.h> // use it when in WSL
 
-#define WINDOWS
+#include "../Config.h"
 
-// #ifdef _MSC_VER // win 下的 gcc 编译不过去，只能用 WSL？
-#if defined (_MSC_VER) || defined (WINDOWS)
+#if defined (_MSC_VER) || defined (ON_WINDOWS)
 #include <tchar.h>
 #include <winsock2.h>
 #include <windows.h>
@@ -23,9 +22,11 @@
 #endif
 #include <string>
 
-#ifndef _MSC_VER
+#if defined (ON_WINDOWS)
+#ifndef _MSC_VER // 在 win 上即使使用 gcc 也使用 MSVC 实现，否则编译不过去
 #define _MSC_VER
 #define REVERT
+#endif
 #endif
 
 namespace ps {
@@ -264,6 +265,7 @@ int GetAvailablePort() {
 
 #ifdef REVERT
 #undef _MSC_VER
+#undef REVERT
 #endif
 
 } // namespace ps

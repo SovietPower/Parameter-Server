@@ -1,6 +1,5 @@
 /**
  * @file log.h
- * @brief defines logging macros of ps
  */
 /**
 可用的宏：
@@ -17,7 +16,7 @@ DLOG_IF(DEBUG, cond) 等
 CHECK 失败、调用 LOG(FATAL) 会抛出异常或终止程序
 */
 /*!
-	TODO 实现 log 时，添加一个条件输出到特定文件的宏（可以 #if 变量定义和输出？）避免多进/线程的输出混乱
+	TODO 实现 log 时，添加一个条件输出到特定文件的宏避免多进/线程的输出混乱
 	在 base/log 里面加个全局变量来控制输出到的文件名，要在 main 中去初始化。
  */
 #pragma once
@@ -32,7 +31,7 @@ CHECK 失败、调用 LOG(FATAL) 会抛出异常或终止程序
 
 namespace ps_log {
 inline void InitLogging(const char* argv0) {
-	google::InitGoogleLogging(argv0);
+	google::InitGoogleLogging(argv0 ? argv0 : "my-ps");
 }
 }	// namespace ps_log
 
@@ -41,12 +40,21 @@ inline void InitLogging(const char* argv0) {
 #include <ctime>
 #include <chrono>
 #include <iomanip> // put_time
+#include <fstream>
 #include <sstream>
 #include <iostream>
 
 namespace ps_log { // 不放在 namespace ps 下。注意宏不受 namespace 影响
-inline void InitLogging(const char* argv0) {
-	// do nothing
+
+// 注意该设置需要在各引用 Log.h 的模块间共享，不要用 static
+inline bool use_log_ofstream = false;
+inline std::ofstream log_ofstream {};
+
+inline void InitLogging(const char* log_filename) {
+	if (log_filename) {
+		use_log_ofstream = true;
+		log_ofstream = std::ofstream(log_filename);
+	}
 }
 
 enum E_LOG_SEVERITY {
@@ -180,7 +188,7 @@ enum E_LOG_SEVERITY {
 template <E_LOG_SEVERITY severity>
 class LogMessage {
  public:
-	LogMessage(const char* file, int line): log_stream_(std::cerr)
+	LogMessage(const char* file, int line): log_stream_(use_log_ofstream ? log_ofstream : std::cerr)
 	{
 		if constexpr (severity == E_DEBUG) {
 			log_stream_ << "[DEBUG] ";

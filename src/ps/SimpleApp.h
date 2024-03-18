@@ -13,7 +13,7 @@ namespace ps {
  * App 内部会将其与 ps::Message 进行转换，使用户不需要了解和使用 ps::Message 的实现。
  */
 struct SimpleData {
-	/* 消息标识？ */
+	/* ... */
 	int head;
 	/* 发送者的节点 ID */
 	int sender;
@@ -63,7 +63,7 @@ class SimpleApp {
 	 * @param received 要进行回复的请求
 	 * @param response_body 要回复的内容
 	 */
-	virtual void Response(const SimpleData& request_msg, const std::string& response_body = "");
+	void Response(const SimpleData& request_msg, const std::string& response_body = "");
 
 	/**
 	 * @brief 阻塞直到指定请求完成，即对方节点已进行响应。
@@ -71,9 +71,16 @@ class SimpleApp {
 	 */
 	virtual void Wait(int request_id);
 
-	virtual void SetRequestHandle(const Handle& request_handle);
+	/**
+	 * @brief 设置收到请求时调用的回调。
+	 * 注意不应是 virtual，是什么类型就调用哪个函数，不需要多态性。
+	 */
+	void SetRequestHandle(const Handle& request_handle);
 
-	virtual void SetResponseHandle(const Handle& response_handle);
+	/**
+	 * @brief 设置收到响应时调用的回调。
+	 */
+	void SetResponseHandle(const Handle& response_handle);
 
 	virtual Customer* GetCustomer() {
 		return customer_;

@@ -42,6 +42,7 @@ void Van::Start(int customer_id) {
 		scheduler_.role = Node::SCHEDULER;
 		scheduler_.hostname = CHECK_NOTNULL(Environment::Get("PS_SCHEDULER_URI"));
 		scheduler_.port = std::atoi(CHECK_NOTNULL(Environment::Get("PS_SCHEDULER_PORT")));
+		scheduler_.customer_id = -1; // only for scheduler
 
 		// 读取当前节点的信息
 		is_scheduler_ = PostOffice::Get()->is_scheduler();
@@ -50,7 +51,7 @@ void Van::Start(int customer_id) {
 		} else {
 			my_node_.id = Node::kEmpty; // 等待 scheduler 分配
 			my_node_.role = PostOffice::Get()->is_server() ? Node::SERVER : Node::WORKER;
-			my_node_.customer_id = customer_id;
+			my_node_.customer_id = customer_id; // 其实没有意义？因为多个 customer 共享 van 及其 my_node
 
 			// ip
 			const char* val = Environment::Get("PS_NODE_HOST");
@@ -87,7 +88,7 @@ void Van::Start(int customer_id) {
 		// 绑定到对应地址和端口
 		Bind(my_node_, is_scheduler_ ? 0 : 30); // scheduler 必须位于指定端口上，其它节点无所谓
 		CHECK_NE(my_node_.port, -1) << "Bind node failed";
-		LOG(INFO) << "Node binds successfully: " << my_node_.DebugString();
+		PS_LOG_INFO << "Node binds successfully: " << my_node_.DebugString();
 
 		// 与 scheduler 建立连接
 		Connect(scheduler_);
@@ -102,7 +103,6 @@ void Van::Start(int customer_id) {
 	// 向 scheduler 发送 AddNode 请求
 	// 每个 customer 都需执行（除了 scheduler 自己）
 	if (!is_scheduler_) {
-		CHECK_EQ(my_node_.customer_id, customer_id); // TODO: 后续可删
 		Message msg;
 		msg.meta.receiver = kScheduler;
 		msg.meta.control.cmd = Control::ADD_NODE;
@@ -174,32 +174,34 @@ int Van::Send(const Message& msg) {
 	if (resender_) {
 		resender_->OnSend(msg);
 	}
-	DLOG(DEBUG) << "Sent a msg (" << sent << "B): " << msg.DebugString(0, 1);
+	PS_LOG_DEBUG << "Sent a msg (" << sent << "B): " << msg.DebugString(0, 1);
 	return sent;
 }
 
 // ---
 void Van::HandleTerminateCmd() {
-	LOG(INFO) << my_node_.ShortDebugString() << " terminated";
+	PS_LOG_INFO << my_node_.ShortDebugString() << " terminated";
 	ready_ = false;
 }
 
 void Van::HandleBarrierCmd(const Message& msg) {
 	if (msg.meta.request) {
-		// Server/Worker 发送的 Barrier 请求
+		// 接收到 server/worker/scheduler 发送的 Barrier 请求
+		// 注意某些 Barrier 是全部节点进行同步的（比如 Finalize 退出系统），包括 scheduler
 		DCHECK(is_scheduler_);
 
 		int group = msg.meta.control.barrier_group;
 		++barrier_count_[group];
-		LOG(DEBUG) << "Increase barrier_count[" << group << "] to " << barrier_count_[group];
+		PS_LOG_DEBUG << "Increase barrier_count[" << group << "] to " << barrier_count_[group];
 
 		if (static_cast<size_t>(barrier_count_[group]) == PostOffice::Get()->GetNodeIDs(group).size()) {
 			barrier_count_[group] = 0;
-			LOG(DEBUG) << "Release group [" << group << "] from barrier";
+			PS_LOG_DEBUG << "Release group [" << group << "] from barrier";
 
 			Message rel; // release
 			rel.meta.request = false;
 			rel.meta.control.cmd = Control::BARRIER;
+			rel.meta.control.barrier_group = -1;
 			rel.meta.app_id = msg.meta.app_id;
 			rel.meta.customer_id = msg.meta.customer_id;
 			for (int id: PostOffice::Get()->GetNodeIDs(group)) {
@@ -211,8 +213,8 @@ void Van::HandleBarrierCmd(const Message& msg) {
 			}
 		}
 	} else {
-		// Scheduler 发出的结束 Barrier 指令
-		DCHECK(!is_scheduler_);
+		// 接收到 scheduler 发出的结束 Barrier 指令
+		// 注意因为 scheduler 也可能参与同步，所以 scheduler 也可能执行该逻辑
 		PostOffice::Get()->ExitBarrier(msg);
 	}
 }
@@ -222,7 +224,7 @@ void Van::HandleHeartbeatCmd(const Message& msg) {
 	std::time_t now = std::time(nullptr);
 	for (const auto& node: msg.meta.control.nodes) {
 		PostOffice::Get()->UpdateHeartbeat(node.id, now);
-		LOG(DEBUG) << "Update heartbeat of node " << node.ShortDebugString() << " to time " << now;
+		PS_LOG_DEBUG << "Update heartbeat of node " << node.ShortDebugString() << " to time " << now;
 	}
 
 	// 发送心跳回复
@@ -277,7 +279,7 @@ void Van::UpdateNodeID(Message& msg, std::vector<Node>& nodes, std::vector<Node>
 			// 目前还不是所有节点都已注册，直接放入 nodes
 			nodes.push_back(new_node);
 
-			LOG(INFO) << "UpdateNodeID: New node added (now: " << nodes.size() << " nodes)";
+			PS_LOG_INFO << "UpdateNodeID: New node added (now: " << nodes.size() << " nodes)";
 		} else {
 			// 所有节点都已注册，从 nodes 中找一个 dead node 将其替换，相当于重启一个故障节点
 			CHECK(ready_);
@@ -295,7 +297,7 @@ void Van::UpdateNodeID(Message& msg, std::vector<Node>& nodes, std::vector<Node>
 					new_node.is_recovered = true;
 					recovered_nodes.push_back(new_node);
 
-					LOG(INFO) << "UpdateNodeID: Replace dead node " << node.DebugString()
+					PS_LOG_INFO << "UpdateNodeID: Replace dead node " << node.DebugString()
 						<< " with new node " << new_node.DebugString();
 					node = new_node;
 				}
@@ -308,7 +310,7 @@ void Van::UpdateNodeID(Message& msg, std::vector<Node>& nodes, std::vector<Node>
 		if (my_node_.hostname == node.hostname && my_node_.port == node.port) {
 			if (my_node_.id == Meta::kEmpty) {
 				my_node_ = node;
-				LOG(INFO) << "UpdateNodeID: Got node ID: " << node.ShortDebugString();
+				PS_LOG_INFO << "UpdateNodeID: Got node ID: " << node.ShortDebugString();
 			}
 			// TODO: 需要 DMLC_RANK 吗？
 		}
@@ -353,13 +355,13 @@ void Van::HandleAddNodeCmdAtScheduler(std::vector<Node>& nodes, std::vector<Node
 				// 更新一次心跳
 				PostOffice::Get()->UpdateHeartbeat(node.id, now);
 
-				LOG(INFO) << "HandleAddNodeCmdAtScheduler: " << "Scheduler connects to a new node: " << node.DebugString();
+				PS_LOG_INFO << "HandleAddNodeCmdAtScheduler: " << "Scheduler connects to a new node: " << node.DebugString();
 			} else {
 				// 该节点之前已连接，即该节点与之前某个节点互为 customer
 				node.id = connected_nodes_[addr];
 				shared_node_mapping_[new_id] = node.id;
 
-				LOG(INFO) << "HandleAddNodeCmdAtScheduler: Scheduler knows a already connected node: " << node.DebugString();
+				PS_LOG_INFO << "HandleAddNodeCmdAtScheduler: Scheduler knows a already connected node: " << node.DebugString();
 			}
 		}
 
@@ -383,7 +385,7 @@ void Van::HandleAddNodeCmdAtScheduler(std::vector<Node>& nodes, std::vector<Node
 		}
 
 		ready_ = true;
-		LOG(INFO) << "HandleAddNodeCmdAtScheduler: " << "Scheduler connects to " << num_servers_ << " servers and " << num_workers_ << " num_workers";
+		PS_LOG_INFO << "HandleAddNodeCmdAtScheduler: " << "Scheduler connects to " << num_servers_ << " servers and " << num_workers_ << " num_workers";
 	} else if (!recovered_nodes.empty()) {
 		// 在系统完全启动后，有一个节点故障并重新加入，需要与节点重新建立连接
 		// 这个节点由 AddNode 触发，并在 UpdateNodeID 中加入到了 recovered_nodes 中
@@ -431,7 +433,7 @@ void Van::HandleAddNodeCmdAtSAndW(const Message& msg) {
 			}
 		}
 	}
-	LOG(INFO) << "HandleAddNodeCmdAtSAndW: " << "node " << my_node_.ShortDebugString()
+	PS_LOG_INFO << "HandleAddNodeCmdAtSAndW: " << "node " << my_node_.ShortDebugString()
 		<< " connects to " << msg.meta.control.nodes.size() << " nodes";
 
 	// server/worker 第一次接收到 ADD_NODE 时代表系统启动
@@ -456,7 +458,7 @@ void Van::ReceiveThread() {
 		}
 
 		receive_bytes_ += received;
-		DLOG(DEBUG) << "Received a msg (" << received << "B): " << msg.DebugString(0, 1);
+		PS_LOG_DEBUG << "Received a msg (" << received << "B): " << msg.DebugString(0, 1);
 
 		// 发送 ACK，并检查：如果消息已接收过、无需重复处理，或只是 ACK 消息，则跳过处理
 		if (resender_ && resender_->OnReceive(msg)) {

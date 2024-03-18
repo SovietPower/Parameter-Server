@@ -1,15 +1,22 @@
 cmake_minimum_required(VERSION 3.17.0)
 
 if (NOT WSL) # 通过 -DWSL=1 设置
-	message("not use wsl")
+	message("not using wsl")
+	set(ON_WINDOWS 1)
 	set(CMAKE_TOOLCHAIN_FILE "E:/Runtime/vcpkg/scripts/buildsystems/vcpkg.cmake")
 	# 用于 MSVC
 	# set(VCPKG_TARGET_TRIPLET "x64-windows")
 	# 用于 MinGW Makefiles
 	set(VCPKG_TARGET_TRIPLET "x64-mingw-static")
 else()
-	message("use wsl")
+	message("using wsl")
 endif()
+
+set(USE_CONFIG_FILE 1)
+configure_file (
+	"${CMAKE_SOURCE_DIR}/src/Config.h.in"
+	"${CMAKE_SOURCE_DIR}/src/Config.h"
+)
 
 project(ps LANGUAGES CXX)
 set(CMAKE_CXX_STANDARD 20)
@@ -34,18 +41,11 @@ else ()
 	)
 endif()
 
-# 根据模板生成 config.h
-# set(VERBOSE 1)
-# configure_file (
-# 	"${PROJECT_SOURCE_DIR}/config.h.in"
-# 	"${PROJECT_SOURCE_DIR}/config.h"
-# )
-
 if (WSL) # 通过 -DWSL=1 设置
 	# for wsl
-	set(fmt_DIR "/mnt/e/Runtime/vcpkg/installed/x64-windows/share/fmt")
-	set(ZeroMQ_DIR "/mnt/e/Runtime/vcpkg/installed/x64-windows/share/zeromq")
-	set(protobuf_DIR "/mnt/e/Runtime/vcpkg/installed/x64-windows/share/protobuf")
+	set(fmt_DIR "/mnt/e/Runtime/vcpkg/installed/x64-mingw-static/share/fmt")
+	set(ZeroMQ_DIR "/mnt/e/Runtime/vcpkg/installed/x64-mingw-static/share/zeromq")
+	set(protobuf_DIR "/mnt/e/Runtime/vcpkg/installed/x64-mingw-static/share/protobuf")
 endif()
 
 # import fmt
@@ -56,9 +56,6 @@ find_package(ZeroMQ CONFIG REQUIRED)
 
 # import protobuf
 find_package(protobuf CONFIG REQUIRED)
-
-# ps
-# add_subdirectory(src) # 生成 ps_lib
 
 # --- ps_lib
 add_library(ps_lib STATIC)
@@ -76,9 +73,17 @@ target_sources(ps_lib PUBLIC ${ps_lib_src})
 message("CMAKE_SOURCE_DIR: " ${CMAKE_SOURCE_DIR})
 message("ps_lib_src: " ${ps_lib_src})
 
+# message("-------")
+# message("ZeroMQ_LIBRARY:" ${ZeroMQ_LIBRARY})
+# message("ZeroMQ_STATIC_LIBRARY:" ${ZeroMQ_STATIC_LIBRARY})
+
 target_link_libraries(ps_lib PRIVATE fmt::fmt)
-target_link_libraries(ps_lib PUBLIC libzmq libzmq-static) # 需要 PUBLIC 不然会在链接 SVectorTest 时出错？
-target_link_libraries(ps_lib PRIVATE protobuf::libprotoc protobuf::libprotobuf protobuf::libprotobuf-lite)
+target_link_libraries(ps_lib PUBLIC protobuf::libprotoc protobuf::libprotobuf protobuf::libprotobuf-lite)
+target_link_libraries(ps_lib PUBLIC libzmq libzmq-static) # 需要 PUBLIC 不然会在链接时出错
+
+if (WSL)
+	target_link_directories(ps_lib PUBLIC "/mnt/e/Runtime/mingw64/x86_64-w64-mingw32/lib")
+endif()
 
 # Generate protobuf headers and sources
 # 好像并不会生成，所以选择用 protoc 手动生成，然后放到 src 目录下
@@ -126,16 +131,14 @@ AddTest(SVectorTest "utility" "SVector_test")
 # --- ps_lib test end
 # --- ps_lib end
 
+# --- tests
+add_subdirectory(tests)
+# ---
+
 # main
-add_executable(main main.cpp)
-target_include_directories(main PRIVATE "${CMAKE_SOURCE_DIR}/src")
-target_link_libraries(main PUBLIC ps_lib)
-target_link_libraries(ps_lib PUBLIC fmt::fmt)
+# add_executable(main main.cpp)
+# target_include_directories(main PRIVATE "${CMAKE_SOURCE_DIR}/src")
+# target_link_libraries(main PUBLIC ps_lib)
 
 # 为 clangd 生成 compile_commands
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON CACHE INTERNAL "")
-
-# add_subdirectory(tests)
-
-# include(CTest)
-# enable_testing()

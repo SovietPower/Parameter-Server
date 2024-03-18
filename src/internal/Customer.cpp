@@ -31,7 +31,7 @@ void Customer::WaitRequest(int request_id) {
 	while (tracker_[request_id].first != tracker_[request_id].second) {
 		tracker_cond_.wait(ulock);
 	}
-	// TODO tracker_[rid] 不会被删除，vector 会一直变大。
+	// TODO: tracker_[rid] 不会被删除，vector 会一直变大。
 	// 考虑记录 Wait 的数量，然后在解除 Wait、数量降低到0时尝试删除。还需要保证后续进入 Wait 的能直接返回。
 	// 由于是 vector，可以记录一个偏移量 base，tracker[t] 实际对应 base+t 的时间戳
 	// ts < base 的请求都已完成，ts >= base 的请求保证仍在 vector 内

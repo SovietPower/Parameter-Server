@@ -4,29 +4,55 @@
  * 封装和提供 PS 的内部接口。
  */
 #pragma once
+#include <cstdlib>
+#include <iostream>
+
 #include "../ps/Base.h"
 #include "../ps/KVApp.h"
-
 #include "../internal/PostOffice.h"
 
 namespace ps {
 
+// 以下均为默认实现
+
 /**
  * @brief 启动系统。会阻塞当前节点，直到所有节点都启动完成。
  * @param customer_id 当前 customer_id
- * @param argv0 程序名，用于初始化 glog
+ * @param config_filename 要读取的配置文件名（json 格式，加不加后缀都可）。当使用本地文件配置时必须设置
+ * @param log_filename 程序名，或日志输出文件名，用于初始化日志
  */
-inline void Start(int customer_id, const char* argv0 = nullptr) {
-	PostOffice::Get()->Start(customer_id, argv0, true);
+inline void Start(int customer_id, const char* config_filename, const char* log_filename = nullptr) {
+	PostOffice::Get()->Start(customer_id, config_filename, log_filename, true);
+}
+
+/**
+ * @brief 启动系统。会阻塞当前节点，直到所有节点都启动完成。
+ * @param customer_id 当前 customer_id
+ * @param argc 命令行参数
+ * @param argv 命令行参数
+ */
+inline void Start(int customer_id, int argc, char* argv[]) {
+	if (argc < 2) {
+		std::cout << "param error:\n"
+			<< "usage: " << argv[0] << " config_filename [log_filename] [args...]\n";
+		exit(0);
+	}
+	const char* config_filename = argv[1];
+	const char* log_filename = nullptr;
+	if (argc > 2) {
+		log_filename = argv[2];
+	}
+	ps::Start(customer_id, config_filename, log_filename);
 }
 
 /**
  * @brief 启动系统。不会阻塞当前节点。
  * @param customer_id 当前 customer_id
- * @param argv0 程序名，用于初始化 glog
+ * @param config_filename 要读取的配置文件名（json 格式，加不加后缀都可）。当使用本地文件配置时必须设置
+ * @param log_filename 程序名，或日志输出文件名，用于初始化日志
  */
-inline void StartAsync(int customer_id, const char* argv0 = nullptr) {
-	PostOffice::Get()->Start(customer_id, argv0, false);
+inline void StartAsync(int customer_id, const char* config_filename, const char* log_filename = nullptr) {
+	PostOffice::Get()->Start(customer_id, config_filename, log_filename, false);
 }
 
 /**

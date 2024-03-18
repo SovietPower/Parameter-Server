@@ -14,6 +14,7 @@
 #include <initializer_list>
 
 #include "../base/log.h"
+#include "../ps/Range.h"
 
 namespace ps {
 
@@ -62,9 +63,9 @@ enum DeleterType: uint8_t {
 template <typename T, typename Allocator>
 struct Deleter {
 	explicit Deleter(DeleterType dt, Allocator* alloc = nullptr, size_t cap = 0)
-			: flag(dt), allocator(alloc), capacity(cap) {
+			: flag(dt), allocator_(alloc), capacity(cap) {
 		if (flag != CannotFree) {
-			CHECK_NOTNULL(allocator);
+			CHECK_NOTNULL(allocator_);
 		}
 	}
 
@@ -76,17 +77,28 @@ struct Deleter {
 				}
 				// delete[] data;
 			}
-			allocator->deallocate(data, capacity);
+			allocator_->deallocate(data, capacity);
 		}
 	}
 
 	DeleterType flag;
-	Allocator* allocator;
+	Allocator* allocator_;
 	size_t capacity;
 };
 } // namespace
 
 // --- SVector
+
+template <typename T, typename Allocator>
+concept SVectorRequire =
+	requires (Allocator a, size_t n, T* p) {
+		// T 需要可默认构造
+		T{};
+		// Allocator 需满足分配器 (Allocator) 要求
+		{ a.allocate(n) } -> std::same_as<T*>;
+		a.deallocate(p, n);
+	};
+
 /**
  * SVector<T> 是一个变长数组，提供的接口与 vector<T> 类似。
  * 特点是从另一个 SVector、vector 或数组构造 SVector 时，可以选择零拷贝的方式，
@@ -105,19 +117,18 @@ struct Deleter {
  * @tparam T 元素的类型
  */
 template <typename T, typename Allocator = std::allocator<T>>
-	requires
-		requires (Allocator a, size_t n, T* p) {
-			// T 需要可默认构造
-			T{};
-			// Allocator 需满足分配器 (Allocator) 要求
-			{ a.allocate(n) } -> std::same_as<T*>;
-			a.deallocate(p, n);
-		}
+	requires SVectorRequire<T, Allocator>
 class SVector {
 	using DeleterT = Deleter<T, Allocator>;
 
+	// 声明不同实例之间为友元
+	// 注意友元声明的模板参数与限制必须与原声明完全对应，包括 requires
+	template <typename U, typename U_Allocator>
+		requires SVectorRequire<U, U_Allocator>
+	friend class SVector;
+
  public:
-	SVector(): size_(0), capacity_(0), ptr_(nullptr), allocator() {}
+	SVector(): size_(0), capacity_(0), ptr_(nullptr), allocator_() {}
 
 	/** @brief 由 shared_ptr<T> 的 deleter 决定何时释放数组 */
 	~SVector() = default;
@@ -128,12 +139,12 @@ class SVector {
 	 * @param value 初始值
 	 */
 	explicit SVector(size_t count, const Allocator& alloc = Allocator())
-			: size_(0), capacity_(0), ptr_(nullptr), allocator(alloc) {
+			: size_(0), capacity_(0), ptr_(nullptr), allocator_(alloc) {
 		// 注意 resize 函数本身不会先初始化成员，但是使用了成员，需要自行初始化成员
 		resize(count);
 	}
 	explicit SVector(size_t count, const T& value, const Allocator& alloc = Allocator())
-			: size_(0), capacity_(0), ptr_(nullptr), allocator(alloc) {
+			: size_(0), capacity_(0), ptr_(nullptr), allocator_(alloc) {
 		resize(count, value);
 	}
 
@@ -156,7 +167,7 @@ class SVector {
 	*/
 	template <typename U>
 	SVector& operator = (const SVector<U>& other) {
-		if (this == &other) {
+		if (this == reinterpret_cast<const SVector<T>*>(&other)) {
 			return *this;
 		}
 		// size_ = other.size();
@@ -164,18 +175,19 @@ class SVector {
 		// ptr_ = other.ptr_;
 
 		size_ = other.size() * sizeof(U) / sizeof(T);
-		capacity_ = other.capacity_ * sizeof(U) / sizeof(T);
+		capacity_ = other.capacity() * sizeof(U) / sizeof(T);
 		CHECK_EQ(size_ * sizeof(T), other.size() * sizeof(U)) << "size should be divided";
 
 		// 与另一个 shared_ptr 共享计数，并拷贝其析构函数；但将其保存的指针转为 T* 保存。
-		ptr_ = std::shared_ptr<T>(other.ptr_, reinterpret_cast<T*>(other.data()));
+		ptr_ = std::shared_ptr<T>(other.ptr_, reinterpret_cast<T*>(other.ptr_.get()));
+		// 这里不能用 other.data()，否则返回的指针会带 const 不能转 T*。get 不带 const。
 
-		allocator = other.allocator;
+		allocator_ = other.allocator_;
 		return *this;
 	}
 	template <typename U>
 	SVector& operator = (SVector<U>&& other) {
-		if (this == &other) {
+		if (this == reinterpret_cast<SVector<T>*>(&other)) {
 			return *this;
 		}
 		// size_ = other.size_;
@@ -188,7 +200,7 @@ class SVector {
 
 		ptr_ = std::shared_ptr<T>(std::move(other.ptr_), reinterpret_cast<T*>(other.data()));
 
-		allocator = std::move(other.allocator);
+		allocator_ = std::move(other.allocator_);
 		other.size_ = 0;
 		other.capacity_ = 0;
 		return *this;
@@ -202,7 +214,7 @@ class SVector {
 	 * @param size 数组长度
 	 * @param deletable 当引用计数变为0时，是否要进行析构并释放该数组。应该始终为 false，除非使用同样的 allocator 分配。
 	 */
-	explicit SVector(T* data, size_t size, bool deletable = false): allocator() {
+	explicit SVector(T* data, size_t size, bool deletable = false): allocator_() {
 		if (!deletable) {
 			reset(data, size, CannotFree);
 		} else {
@@ -214,14 +226,14 @@ class SVector {
 	 * @brief 通过 vector 构造，拷贝其数据。
 	 * 当 vector 非 const 时，可调用 SVector(v.data(), v.capacity(), false) 零拷贝获取其数据。但要注意生命周期及 v.data() 的有效性。
 	 */
-	explicit SVector(const std::vector<T>& vec): allocator() {
+	explicit SVector(const std::vector<T>& vec): allocator_() {
 		CopyFrom(vec.data(), vec.size());
 	}
 
 	/**
 	 * @brief 通过 shared_ptr<vector> 构造，与其共享底层数组和引用计数，无需拷贝。但要注意尽管 vector 的生命周期与 SVector 一致，仍要保证 v.data() 的有效性。
 	 */
-	explicit SVector(const std::shared_ptr<std::vector<T>>& sp): allocator() {
+	explicit SVector(const std::shared_ptr<std::vector<T>>& sp): allocator_() {
 		size_ = sp->size();
 		capacity_ = sp->capacity();
 		// shared_ptr 的别名构造函数
@@ -231,7 +243,7 @@ class SVector {
 	/**
 	 * @brief 通过初始化列表构造。
 	 */
-	explicit SVector(const std::initializer_list<T>& init_list): allocator() {
+	explicit SVector(const std::initializer_list<T>& init_list): allocator_() {
 		CopyFrom(init_list.begin(), init_list.end());
 	}
 
@@ -295,7 +307,7 @@ class SVector {
 		ret.capacity_ = right - left;
 		// 共享引用计数与 deleter
 		ret.ptr_ = std::shared_ptr<T>(ptr_, data() + left);
-		ret.allocator = allocator;
+		ret.allocator_ = allocator_;
 		return ret;
 	}
 
@@ -303,10 +315,10 @@ class SVector {
 	 * @brief 设置 allocator。不推荐使用。使用前需确保构造函数中没有发生内存分配。
 	 */
 	void SetAllocator(const Allocator& alloc) {
-		allocator = alloc;
+		allocator_ = alloc;
 	}
 	void SetAllocator(Allocator&& alloc) {
-		allocator = std::move(alloc);
+		allocator_ = std::move(alloc);
 	}
 
 	// --- 修改器
@@ -319,7 +331,7 @@ class SVector {
 	void reset(T* data, size_t size, DeleterType dt) {
 		size_ = size;
 		capacity_ = size;
-		DeleterT deleter = dt == CannotFree ? DeleterT(CannotFree) : DeleterT(dt, &allocator, size);
+		DeleterT deleter = dt == CannotFree ? DeleterT(CannotFree) : DeleterT(dt, &allocator_, size);
 		ptr_.reset(data, deleter);
 	}
 	/**
@@ -582,7 +594,7 @@ class SVector {
 	 * @brief 分配指定数量个元素的内存。不会进行构造。
 	 */
 	T* Allocate(size_t size) {
-		return allocator.allocate(size);
+		return allocator_.allocate(size);
 	}
 
 	/**
@@ -604,7 +616,7 @@ class SVector {
 	size_t size_;
 	size_t capacity_;
 	std::shared_ptr<T> ptr_;
-	Allocator allocator;
+	Allocator allocator_;
 };
 
 template <typename T, typename Allocator>
@@ -635,6 +647,32 @@ bool operator ==(const SVector<T, Alloc>& lhs, const SVector<T, Alloc>& rhs) {
 		}
 	}
 	return true;
+}
+
+/**
+ * \brief TODO.
+ * Find the index range of a segment of a sorted array such that the
+ * entries in this segment is within [lower, upper). Assume
+ * array values are ordered.
+ *
+ * An example
+ * \code{cpp}
+ * SArray<int> a{1 3 5 7 9};
+ * CHECK_EQ(Range(1,3), FindRange(a, 2, 7);
+ * \endcode
+ *
+ * \param arr the source array
+ * \param lower the lower bound
+ * \param upper the upper bound
+ *
+ * \return the index range
+ */
+template<typename T>
+Range FindRange(const SVector<T>& vec, T lower, T upper) {
+	if (upper <= lower) return Range(0, 0);
+	auto lb = std::lower_bound(vec.begin(), vec.end(), lower);
+	auto ub = std::lower_bound(vec.begin(), vec.end(), upper);
+	return Range(lb - vec.begin(), ub - vec.begin());
 }
 
 } // namespace ps

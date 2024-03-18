@@ -2,6 +2,9 @@
 build
 build_wsl
 
+tests/exe
+tests/log
+
 CMakeLists.txt.user
 CMakeCache.txt
 CMakeFiles

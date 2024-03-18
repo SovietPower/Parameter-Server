@@ -12,6 +12,11 @@
 
 namespace ps {
 
+// Base.h 与 VERBOSE 均为0才输出
+#define PS_LOG_DEBUG LOG_IF(DEBUG, PostOffice::Get()->verbose() <= 0)
+// Base.h 与 VERBOSE 均<=1才输出
+#define PS_LOG_INFO LOG_IF(INFO, PostOffice::Get()->verbose() <= 1)
+
 // class Van;
 class Customer;
 
@@ -31,11 +36,12 @@ class PostOffice final {
 	/**
 	 * @brief 启动系统。
 	 * 只有 Start 调用完成后才能调用其它大多数函数。
+	 * @param config_filename 要读取的配置文件名。当使用本地文件配置时必须设置
 	 * @param customer_id 当前 customer_id
-	 * @param argv0 程序名，用于初始化 glog
+	 * @param log_filename 程序名，或日志输出文件名，用于初始化日志
 	 * @param need_barrier 是否需要阻塞当前节点，直到所有节点都启动完成
 	 */
-	void Start(int customer_id, const char* argv0, bool need_barrier = true);
+	void Start(int customer_id, const char* config_filename, const char* log_filename, bool need_barrier = true);
 	/**
 	 * @brief 结束系统（当前节点退出系统）。
 	 * 所有节点在退出前都需调用，以结束整个系统。
@@ -109,6 +115,9 @@ class PostOffice final {
 	int num_servers() const {
 		return num_servers_;
 	}
+	int verbose() const {
+		return verbose_;
+	}
 	/**
 	 * @brief 检查节点是否是通过故障重启加入的，而非最初创建的节点。
 	 */
@@ -164,8 +173,9 @@ class PostOffice final {
  private:
 	/**
 	 * @brief 读取环境变量，配置初始化系统。
+	 * 在启用读取本地配置的情况下，读取 config_filename.json 文件替代环境变量。
 	 */
-	void InitEnv();
+	void InitEnv(const char* config_filename);
 
 	Van* van_;
 	/* 当前节点身份，从环境配置读取 */
@@ -202,8 +212,10 @@ class PostOffice final {
 	获取某个组所包含的节点 ID */
 	std::unordered_map<int, std::vector<int>> node_ids_;
 
+	/* 日志输出。注意给初值，因为初始化 Env 和 verbose 前就可能使用 PS_LOG */
+	int verbose_{0};
+
 	DISABLE_COPY_AND_ASSIGN(PostOffice);
 };
-
 
 } // namespace ps
