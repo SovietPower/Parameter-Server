@@ -37,6 +37,26 @@ struct KVPairs {
 };
 
 /**
+ * @brief 一次请求 (push, pull, push_pull) 的元信息
+ */
+struct KVMeta {
+	/* 可选的 cmd */
+	int cmd;
+	/* 是否为 push 请求。
+	* 如果是，则用消息中的数据更新存储 */
+	bool push;
+	/* 是否为 push 请求。
+	* 如果是，则要求返回 Key 中的最新数据 */
+	bool pull;
+	/* 发送者的节点 ID */
+	int sender;
+	/* 请求的时间戳（即 request_id） */
+	int timestamp;
+	/* 相关 worker 的 customer_id */
+	int customer_id;
+};
+
+/**
  * @brief 一个 worker 节点。
  */
 template <typename Value>
@@ -352,26 +372,6 @@ class KVWorker: public SimpleApp {
 };
 
 /**
- * @brief 一次请求 (push, pull, push_pull) 的元信息
- */
-struct KVMeta {
-	/* cmd */
-	int cmd;
-	/* 是否为 push 请求。
-	* 如果是，则用消息中的数据更新存储 */
-	bool push;
-	/* 是否为 push 请求。
-	* 如果是，则要求返回 Key 中的最新数据 */
-	bool pull;
-	/* 发送者的节点 ID */
-	int sender;
-	/* 请求的时间戳（即 request_id） */
-	int timestamp;
-	/* 相关 worker 的 customer_id */
-	int customer_id;
-};
-
-/**
  * @brief 维护键值对的一个 server 节点。
  */
 template <typename Value>
@@ -456,7 +456,6 @@ struct KVServerDefaultHandle {
 	}
 	std::unordered_map<Key, Value> store;
 };
-
 
 ///////////////////////////////////////////////////////////////////////////////
 

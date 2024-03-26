@@ -4,6 +4,7 @@ build_wsl
 
 tests/exe
 tests/log
+tests/LR
 
 CMakeLists.txt.user
 CMakeCache.txt

@@ -25,14 +25,14 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 
 # 编译选项
 if (MSVC)
-	message("in MSVC!")
+	message("using MSVC")
 	add_compile_options(
 		/Wall
 		/permissive-
 		/Zc:__cplusplus
 	)
 else ()
-	message("not in MSVC!")
+	message("not using MSVC")
 	add_compile_options(
 		-Wall
 		-Wpedantic
@@ -134,11 +134,6 @@ AddTest(SVectorTest "utility" "SVector_test")
 # --- tests
 add_subdirectory(tests)
 # ---
-
-# main
-# add_executable(main main.cpp)
-# target_include_directories(main PRIVATE "${CMAKE_SOURCE_DIR}/src")
-# target_link_libraries(main PUBLIC ps_lib)
 
 # 为 clangd 生成 compile_commands
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON CACHE INTERNAL "")

@@ -65,6 +65,16 @@ inline void Finalize(int customer_id, bool need_barrier = true) {
 	PostOffice::Get()->Finalize(customer_id, need_barrier);
 }
 
+
+/**
+ * @brief 在指定组中建立屏障，阻塞该组的所有节点，直到全部进入屏障。
+ * @param customer_id 发送同步请求的 customer
+ * @param group_id 需要进行同步的范围
+*/
+inline void Barrier(int customer_id, int group_id) {
+	PostOffice::Get()->Barrier(customer_id, group_id);
+}
+
 /**
  * @brief 注册系统退出时（Finalize() 之后）要执行的回调函数。
  * 如果需要阻塞，则会在阻塞完后执行。

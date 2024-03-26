@@ -6,6 +6,8 @@
 #include <cstdlib>
 #include <unordered_map>
 
+#include "../base/Log.h"
+
 namespace ps {
 
 // 关闭 getenv 的警告
@@ -46,6 +48,14 @@ class Environment {
 		auto ret = Get(key);
 		return ret ? ret : default_val;
 	}
+	/**
+	 * @brief 获取指定配置的值。不存在则报错。
+	 */
+	static const char* GetOrFail(const char* key) {
+		auto ret = Get(key);
+		CHECK(ret != nullptr) << "Set valid config: " << key << " first!";
+		return ret;
+	}
 
 	/**
 	 * @brief 获取指定整数类型配置的值。不存在则返回 0。
@@ -59,6 +69,14 @@ class Environment {
 	static int GetIntOrDefault(const char* key, int default_val) {
 		auto ret = Get(key);
 		return ret ? std::atoi(ret) : default_val;
+	}
+	/**
+	 * @brief 获取指定配置的值。不存在则报错。
+	 */
+	static int GetIntOrFail(const char* key) {
+		auto ret = Get(key);
+		CHECK(ret != nullptr) << "Set valid config: " << key << " first!";
+		return ret ? std::atoi(ret) : 0;
 	}
 
 	~Environment() = default; // 析构必须 public 供 shared_ptr 调用
@@ -76,5 +94,10 @@ class Environment {
 
 	std::unordered_map<std::string, std::string> cfg_;
 };
+
+/**
+ * @brief 读取某目录下的 config 文件初始化 Environment。
+ */
+void ReadLocalConfigToEnv(std::string config_filename);
 
 } // namespace ps

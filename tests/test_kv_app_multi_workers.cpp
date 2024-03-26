@@ -19,6 +19,10 @@ void RunWorker(int customer_id, int argc, char** argv) {
 		return;
 	}
 	KVWorker<float> kv(0, customer_id);
+
+	std::string tmp = "Customer " + std::to_string(customer_id) + ": rank: " + std::to_string(MyRank());
+	std::cout << tmp << std::endl;
+
 	// init
 	int num = 10000;
 	std::vector<Key> keys(num);
@@ -64,7 +68,7 @@ void RunWorker(int customer_id, int argc, char** argv) {
 	Finalize(customer_id, true);
 }
 
-int main(int argc, char *argv[]) {
+int main(int argc, char* argv[]) {
 	if (argc < 4) {
 		std::cout << "param error:\n"
 			<< "usage: " << argv[0] << " config_filename log_filename role\n";

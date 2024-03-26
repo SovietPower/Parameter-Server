@@ -1,82 +1,10 @@
 #include "PostOffice.h"
 
-#include <fstream>
-
 #include "ps/Base.h"
 #include "internal/Env.h"
 #include "internal/Customer.h"
-#include "utility/JSONParser.hpp"
 
 #include "../Config.h"
-
-namespace {
-
-/**
- * @brief 读取文件内容并转为 string
- */
-std::string readFileToString(const std::string& filename) {
-	std::ifstream file(filename);
-	if (!file.is_open()) {
-		LOG(ERROR) << "Unable to open config file: " << filename
-			<< ". using environment vars.";
-		return "";
-	}
-	std::string content;
-	std::string line;
-	while (std::getline(file, line)) {
-		content += line + '\n';
-	}
-	file.close();
-	return content;
-}
-
-// 读取当前目录下的 config_filename.json 初始化 Environment
-void ReadLocalConfig(std::string config_name) {
-	if (config_name.length() > 5) {
-		std::string suffix = config_name.substr(config_name.length() - 5);
-		if (suffix != ".json") {
-			config_name += ".json";
-		}
-	}
-	std::string content = readFileToString(config_name);
-	if (content.empty()) {
-		return;
-	}
-	json::JSON json = json::JSON::Load(content);
-	std::unordered_map<std::string, std::string> cfg;
-
-	auto AddKey = [&json, &cfg](const std::string& key, bool isEssential = true) {
-		if (!json.hasKey(key)) {
-			if (isEssential) {
-				CHECK(json.hasKey(key)) << "config.json should contain key " << key;
-			}
-			return;
-		}
-		switch (json[key].JSONType()) {
-			case json::JSON::Class::String:
-				cfg[key] = json[key].ToString();
-				break;
-			case json::JSON::Class::Integral:
-				cfg[key] = std::to_string(json[key].ToInt());
-				break;
-			default:
-				LOG(ERROR) << "Unsupported config type: " << static_cast<int>(json[key].JSONType());
-		}
-		using ps::PostOffice;
-	};
-
-	AddKey("PS_NUM_WORKER");
-	AddKey("PS_NUM_SERVER");
-	AddKey("PS_ROLE");
-	AddKey("PS_SCHEDULER_URI");
-	AddKey("PS_SCHEDULER_PORT");
-
-	AddKey("PS_VERBOSE", false);
-
-	ps::Environment::Init(cfg);
-}
-
-} // namespace
 
 namespace ps {
 
@@ -87,7 +15,7 @@ PostOffice::~PostOffice() {
 void PostOffice::InitEnv(const char* config_filename) {
 #ifdef USE_CONFIG_FILE
 	CHECK_NOTNULL(config_filename);
-	ReadLocalConfig(config_filename);
+	ReadLocalConfigToEnv(config_filename);
 #endif
 
 	van_ = Van::Create(Environment::GetOrDefault("PS_VAN_TYPE", "zmq"));
