@@ -51,6 +51,7 @@ class Van {
 	/**
 	 * @brief 发送一条消息的外部接口。可能被多个线程同时执行。
 	 * 实际调用 SendMsg、更新 send_bytes、触发 resender.OnSend。
+	 * ZMQVan::SendMsg 会阻塞直到发送完成（发送成功不代表消息已经被上传到网络或被收到，只代表已经进入当前 socket 的队列）。
 	 * @return 返回发送的字节数。失败则返回-1。
 	 */
 	int Send(const Message& msg);
@@ -67,7 +68,8 @@ class Van {
 		return ready_;
 	}
 	/**
-	 * @brief
+	 * @brief 获取当前进程对应的节点。
+	 * TODO: 这样获取其实有问题，因为一个进程内可以存在多个节点（多个 Customer）
 	 */
 	const Node& my_node() const {
 		return my_node_;
@@ -163,7 +165,7 @@ class Van {
 	void HandleAddNodeCmdAtSAndW(const Message& msg);
 
 	/**
-	 * @brief 接收线程的执行逻辑。接收消息是单线程的。
+	 * @brief 接收线程的执行逻辑。接收消息是单线程的，处理消息的各函数也是单线程执行的。
 	 */
 	void ReceiveThread();
 	/**

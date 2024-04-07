@@ -11,7 +11,7 @@ namespace {
 
 /**
  * @brief 根据情况释放接收的数据。
- * hint 为 nullptr 时，data 为用于 protobuf 打包、解包传输数据的数组，用完后直接 delete[] 释放即可。
+ * hint 为 nullptr 时，data 为用于 protobuf 打包、解包传输 Meta 的数组，用完后直接 delete[] 释放即可。
  * 否则，hint 为 SArray<char>*。
  */
 void FreeData(void *data, void *hint) {
@@ -168,7 +168,7 @@ int ZMQVan::SendMsg(const Message& msg) {
 	while (true) {
 		if (zmq_msg_send(&meta_msg, socket, tag) == meta_size) break;
 		if (errno == EINTR) continue;
-		// TODO: 发送失败后，需要 zmq_msg_close 避免内存泄露？
+		// TODO: 发送失败后，需要 zmq_msg_close？
 		return -1;
 	}
 	// zmq_msg_close(&meta_msg);
@@ -186,7 +186,7 @@ int ZMQVan::SendMsg(const Message& msg) {
 			LOG(WARNING) << "Failed to send message to node [" << id
 							<< "] errno: " << errno << " " << zmq_strerror(errno)
 							<< ". " << i << "/" << n;
-			// TODO: 发送失败后，需要 zmq_msg_close 避免内存泄露
+			// TODO: 发送失败后，需要 zmq_msg_close？
 			return -1;
 		}
 		// zmq_msg_close(&data_msg);

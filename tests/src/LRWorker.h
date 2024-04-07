@@ -15,8 +15,9 @@ namespace lr {
 /**
  * @brief 逻辑回归。
  * @tparam UsePS 是否使用 PS 进行分布式训练
+ * @tparam TrackComm 是否统计每轮训练的通信量
  */
-template <bool UsePS = true>
+template <bool UsePS = true, bool TrackComm = false>
 class LRWorker {
  public:
 	explicit LRWorker(ps::KVWorker<FType>* worker)
@@ -38,6 +39,8 @@ class LRWorker {
 		learning_rate_ = std::stof(std::string(ps::Environment::Get("LEARNING_RATE")));
 		C_ = std::stof(std::string(ps::Environment::GetOrDefault("C", "1")));
 
+		use_key_cache_ = ps::Environment::Get("USE_KEY_CACHING") == nullptr ? false : true;
+
 		if constexpr (!UsePS) {
 			// 如果不使用 PS，则将 server 的逻辑放到 worker 内
 			if (ps::Environment::Get("USE_ADAM") != nullptr) {
@@ -45,6 +48,11 @@ class LRWorker {
 			}
 			// 获取 weight
 			InitWeight(weight_, 0, total_iteration_, current_iteration_);
+		}
+
+		if constexpr (TrackComm) {
+			bytes_sent_.reserve(total_iteration_);
+			bytes_received_.reserve(total_iteration_);
 		}
 
 		std::cout << "new Worker: "
@@ -62,7 +70,12 @@ class LRWorker {
 	 */
 	void Train(DataLoader& data, int batch_size = 100, bool block = true) requires UsePS {
 		std::vector<FType> grad(weight_.size());
+		uint64_t sent = 0, received = 0;
 		while (data.HasNextBatch()) {
+			if constexpr (TrackComm) {
+				sent += key_.size() * sizeof(ps::Key) /* pull */;
+				received += weight_.size() * sizeof(FType) /* pull */;
+			}
 			Pull(block);
 
 			Batch batch = data.GetNextBatch(batch_size);
@@ -76,9 +89,16 @@ class LRWorker {
 				// C：正则化，考虑一部分原模型的影响，避免过拟合
 			}
 
-			Push(grad, block, data.HasNextBatch() ? 0 : 1);
+			if constexpr (TrackComm) {
+				sent += (key_.size() * sizeof(ps::Key) + grad.size() * sizeof(FType)) /* push */;
+			}
+			Push(grad, block, data.HasNextBatch() ? 0 : 1); // 其实可以每次创建 grad，在这里 move(grad)
 		}
 		++current_iteration_;
+		if constexpr (TrackComm) {
+			bytes_sent_.push_back(sent);
+			bytes_received_.push_back(received);
+		}
 	}
 	/**
 	 * @brief 本地进行一轮小批量训练（训练、更新梯度）。
@@ -170,12 +190,14 @@ class LRWorker {
 		if (block) {
 			worker_->Wait(ts);
 		}
+		CacheKey();
 		return ts;
 	}
 	/**
 	 * @brief 向 server 推送梯度。默认阻塞。
 	 * 返回请求的时间戳。
 	 * 可以把 grad 改为 SVector 实现零拷贝（注意 grad 需要每次创建，以避免在非阻塞的情况下覆盖 grad 底层数组）。
+	 * 在 Train 中通过 move(grad) 传递，然后在这里构造 SVector 也是零拷贝的。
 	 * @param cmd 如果为 1，则通知 server 一轮迭代完成
 	 */
 	int Push(const std::vector<FType>& grad, bool block = true, int cmd = 0) requires UsePS {
@@ -183,7 +205,17 @@ class LRWorker {
 		if (block) {
 			worker_->Wait(ts);
 		}
+		CacheKey();
 		return ts;
+	}
+	/**
+	 * @brief 发送完某个 key 列表后，转为 单个哈希值 存储，后续不再发送所有 key。
+	 */
+	void CacheKey() {
+		if (use_key_cache_ && key_hash_ == 0) {
+			key_hash_ = std::hash<ps::SVector<uint64_t>>{}(ps::SVector<uint64_t>(key_));
+			key_ = std::vector<uint64_t>{key_hash_};
+		}
 	}
 
 	/**
@@ -249,6 +281,15 @@ class LRWorker {
 	std::ostringstream test_result_;
 
 	Adam* adam_{nullptr};
+
+	/* key 列表的哈希值。如果发送的 key 与之前相同，可以直接发送该哈希值代替发送 key 列表 */
+	uint64_t key_hash_{0};
+	bool use_key_cache_;
+
+ public:
+	/* 每轮迭代发送和接收的字节数，用于统计 */
+	std::vector<uint64_t> bytes_sent_;
+	std::vector<uint64_t> bytes_received_;
 };
 
 } // namespace lr

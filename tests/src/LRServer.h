@@ -8,6 +8,26 @@
 #include "./Adam.h"
 #include "./DataLoader.h"
 
+namespace std {
+template<>
+struct hash<ps::SVector<uint64_t>> {
+	/**
+	 * @brief 用于 key caching。
+	 * https://codeforces.com/blog/entry/62393
+	 */
+	uint64_t operator()(const ps::SVector<uint64_t>& vec) const noexcept {
+		uint64_t seed = vec.size();
+		for(auto x : vec) {
+			x += 0x9e3779b97f4a7c15;
+			x = (x ^ (x >> 30)) * 0xbf58476d1ce4e5b9;
+			x = (x ^ (x >> 27)) * 0x94d049bb133111eb;
+			seed ^= x ^ x >> 31;
+		}
+		return seed;
+	}
+};
+} // namespace std
+
 namespace lr {
 
 /**
@@ -104,27 +124,39 @@ class LRServer {
 					ps::KVServer<FType>* server) {
 		// Customer 每次仅取出一个 handle 执行，所以线程安全
 		size_t n = req_data.keys.size();
+		if (use_key_cache_) {
+			if (n == 1) {
+				// 读取缓存的 key 列表
+				// 用 单个哈希值 代表一个缓存的 key 列表，只要注意不发送单个参数即可（也可以用 (-1, 哈希值)，但是要指定 lens）
+				auto it = key_cache_.find(req_data.keys[0]);
+				CHECK(it != key_cache_.end()) << "Keys don't exist with hash value: " << req_data.keys[0];
+				const auto& keys = it->second;
+				n = keys.size();
+			} else {
+				// 缓存该 key 列表
+				auto hash = std::hash<ps::SVector<uint64_t>>{}(req_data.keys);
+				if (key_cache_.count(hash) == 0) {
+					key_cache_[hash] = req_data.keys;
+				}
+			}
+		}
+
+		// 在示例中维度只有123，总是发送所有的123个参数或梯度以简化下代码
+		CHECK_EQ(n, weight_.size()) << "Unmatched keys";
+
 		if (req_meta.push) {
 			CHECK_EQ(n, req_data.vals.size());
-			CHECK(!weight_.empty()) << "Weights haven't been inited!";
-			// if (weight_.empty()) {
-			// 	// 第一次 push 进行参数初始化
-			// 	std::cout << "Initialize weight." << std::endl;
-			// 	weight_.resize(n);
-			// 	for (size_t i = 0; i < n; ++i) {
-			// 		weight_[i] = req_data.vals[i];
-			// 	}
-			// 	server->Response(req_meta);
-			// }
+			CHECK(!weight_.empty()) << "Weights haven't been inited";
+
 			if (sync_mode_ == 0) {
 				// 同步更新梯度：将 worker 推送的梯度缓存到 merge_buf_
 				// 在所有 worker 均完成推送后，更新梯度，再通知 worker 请求完成
 				if (merge_buf_.vals.empty()) {
 					merge_buf_.vals.resize(n, 0);
 				}
-				// 汇总梯度再更新以减少计算量（不过 LR 计算少、worker 少，影响不大）
+				// 汇总梯度再更新以减少计算量
 				for (size_t i = 0; i < n; ++i) {
-					merge_buf_.vals[i] += req_data.vals[i];
+					merge_buf_.vals[i] += req_data.vals[i]; // merge_buf_.vals[keys[i]] += req_data.vals[i];
 				}
 
 				merge_buf_.request.push_back(req_meta);
@@ -162,13 +194,13 @@ class LRServer {
 			}
 		}
 		if (req_meta.pull) {
-			CHECK(!weight_.empty()) << "weight hasn't been init";
+			CHECK(!weight_.empty()) << "Weights hasn't been inited";
 
 			ps::KVPairs<FType> res;
 			res.keys = req_data.keys;
 			res.vals.resize(n);
 			for (size_t i = 0; i < n; ++i) {
-				res.vals[i] = weight_[i]; // 需要拷贝一份，不能零拷贝，因为还会更新
+				res.vals[i] = weight_[i]; // 需要拷贝一份，不能零拷贝，因为还会更新？
 			}
 			server->Response(req_meta, res);
 		}
@@ -198,6 +230,10 @@ class LRServer {
 	int total_iteration_;
 
 	Adam* adam_{nullptr};
+
+	/* 缓存的 key 列表 */
+	std::unordered_map<uint64_t, ps::SVector<uint64_t>> key_cache_;
+	bool use_key_cache_;
 };
 
 } // namespace lr

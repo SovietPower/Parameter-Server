@@ -43,13 +43,13 @@ endif()
 
 if (WSL) # 通过 -DWSL=1 设置
 	# for wsl
-	set(fmt_DIR "/mnt/e/Runtime/vcpkg/installed/x64-mingw-static/share/fmt")
+	# set(fmt_DIR "/mnt/e/Runtime/vcpkg/installed/x64-mingw-static/share/fmt")
 	set(ZeroMQ_DIR "/mnt/e/Runtime/vcpkg/installed/x64-mingw-static/share/zeromq")
 	set(protobuf_DIR "/mnt/e/Runtime/vcpkg/installed/x64-mingw-static/share/protobuf")
 endif()
 
 # import fmt
-find_package(fmt CONFIG REQUIRED)
+# find_package(fmt CONFIG REQUIRED)
 
 # import zmq
 find_package(ZeroMQ CONFIG REQUIRED)
@@ -77,7 +77,7 @@ message("ps_lib_src: " ${ps_lib_src})
 # message("ZeroMQ_LIBRARY:" ${ZeroMQ_LIBRARY})
 # message("ZeroMQ_STATIC_LIBRARY:" ${ZeroMQ_STATIC_LIBRARY})
 
-target_link_libraries(ps_lib PRIVATE fmt::fmt)
+# target_link_libraries(ps_lib PRIVATE fmt::fmt)
 target_link_libraries(ps_lib PUBLIC protobuf::libprotoc protobuf::libprotobuf protobuf::libprotobuf-lite)
 target_link_libraries(ps_lib PUBLIC libzmq libzmq-static) # 需要 PUBLIC 不然会在链接时出错
 

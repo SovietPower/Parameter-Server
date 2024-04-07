@@ -1,2 +1,2 @@
-#define ON_WINDOWS
-#define USE_CONFIG_FILE // 是否使用当前目录下的 config.json 读取配置，以代替使用环境变量
+#define ON_WINDOWS // 当前是否为 Windows。仅在 NetworkUtils 中使用
+#define USE_CONFIG_FILE // 是否使用当前目录下的 config.json 读取配置，代替使用环境变量

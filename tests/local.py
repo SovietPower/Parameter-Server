@@ -73,14 +73,16 @@ def create_cfg(role, cfg_name):
 		cfg['DATA_DIR'] = './LR'
 		cfg['NUM_FEATURE'] = 123
 		cfg['SYNC_MODE'] = 0 # 0: sync, 1: async
-		cfg['TEST_PERIOD'] = 1 # 100
+		cfg['TEST_PERIOD'] = 1 # 10
 		cfg['C'] = 1 # 1
 
 		cfg['BATCH_SIZE'] = 500 # 500
-		cfg['ITERATION'] = 250 # 1000
+		cfg['ITERATION'] = 100 # 250
 		cfg['LEARNING_RATE'] = 0.01
 		# cfg['USE_OLD_MODEL'] = 'lr_ps_normal_100'
 		cfg['USE_ADAM'] = 1
+
+		# cfg['USE_KEY_CACHING'] = 1
 
 	with open(cfg_name, 'w') as f:
 		json.dump(cfg, f, indent=4)

@@ -34,8 +34,10 @@ void RunWorker(int customer_id) {
 	bool is_async = sync_mode == 1;
 	bool output_result = is_async || rank == 0; // 只让一个 worker 输出信息
 
+	constexpr bool track_comm = true; // 记录每轮的通信量
+
 	// setup lr worker
-	lr::LRWorker<true> lr_worker(kv_worker);
+	lr::LRWorker<true, track_comm> lr_worker(kv_worker);
 
 	// if (rank == 0) { // 为 server 设置初始参数
 	// 	lr_worker.Push(lr_worker.GetWeight());
@@ -88,6 +90,17 @@ void RunWorker(int customer_id) {
 			<< ", batch_size: " << batch_size;
 		std::cout << out.str() << std::endl;
 		LOG(WARNING) << out.str();
+	}
+
+	if (output_result && track_comm) {
+		const auto& bytes_sent = lr_worker.bytes_sent_;
+		const auto& bytes_received = lr_worker.bytes_received_;
+		std::ofstream comm(data_dir + "/model/network");
+		for (size_t i = 0; i < bytes_sent.size(); ++i) {
+			int s = bytes_sent[i] * 4;
+			int r = bytes_received[i] * 4;
+			comm << s << '\t' << r << '\t' << (s + r) << '\n';
+		}
 	}
 }
 

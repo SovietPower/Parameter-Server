@@ -1,4 +1,4 @@
-参考 ps-lite 实现的参数服务器。
+参考 ps-lite 实现的轻量级参数服务器。
 仅供学习使用。
 
 ---
@@ -13,8 +13,8 @@ make
 ```
 
 > 暂不支持在 WSL 编译。
-~~wsl 下编译，需要加 -DWSL=1~~
-~~注意在不同平台编译时，需要手动修改 NetworkUtils.h 中的宏~~
+理论上除了通过 vcpkg 管理的 ZeroMQ、protobuf 依赖外，没有跨平台的问题，简单修改 CMakeLists 就可在其它平台编译运行。
+（此外非 Windows 要在 CMakeLists 设置 ON_WINDOWS 为 0，与 -DWSL 逻辑类似。它会在 NetworkUtils.h 中使用）
 
 **单元测试**
 
@@ -26,15 +26,17 @@ make
 
 使用`local.py`在本地启动指定数量的节点和任务：
 ```
-local.py [-h] -ns NS -nw NW -exec EXEC [-verbose VERBOSE] [-multi_customer]
+usage: local.py [-h] -ns NS -nw NW -exec EXEC [-lr] [-lr_normal] [-multi_customer] [-verbose VERBOSE]
 
 options:
   -h, --help        show this help message and exit
   -ns NS            number of servers
   -nw NW            number of workers
   -exec EXEC        the program to be run
-  -verbose VERBOSE  log level
-  -multi_customer   whether to run all workers in one process. false in default
+  -lr               whether to run lr_ps test
+  -lr_normal        whether to run lr_normal test
+  -multi_customer   whether to run all workers in one process. default: false
+  -verbose VERBOSE  log level. default: 1
 ```
 
 以 ./tests 下测试代码为例：
@@ -58,7 +60,7 @@ python .\local.py -ns=2 -nw=2 -exec='.\exe\test_kv_app_multi_workers.exe' -multi
 python .\local.py -ns=2 -nw=2 -exec='.\exe\test_kv_app_benchmark.exe'
 
 # 任意测试
-python .\local.py -ns=2 -nw=3 -exec='.\exe\test_my.exe' -verbose=1 -multi_customer
+python .\local.py -ns=2 -nw=3 -exec='.\exe\test_my.exe' -multi_customer
 ```
 
 > 辅助命令：
@@ -88,7 +90,7 @@ python .\local.py -ns=2 -nw=3 -exec='.\exe\test_my.exe' -verbose=1 -multi_custom
 - `PS_DROP_RATE`：收到消息后将其丢弃的概率。用于调试。
 - `PS_VERBOSE`: 日志等级。默认为 0。
 
-不确定：
+ps-lite 中存在但是未使用：
 
 - `PS_NODE_HOST`：节点 IP？
 - `PS_PORT`：节点默认使用的端口？
